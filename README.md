@@ -19,7 +19,7 @@ vtable hooks, and executable patch locations.
 [And the API info is here](docs/PLUGIN_API.md).
 
 
->For the best experience, use the [Nova Crystalia mod loader](https://github.com/LR-Research-Team/Datalog/wiki/%5BGUIDE%5D-Installing-mods-for-Nova-Chrysalia)
+>For the best experience, use the [Nova Chrysalia mod loader](https://github.com/LR-Research-Team/Datalog/wiki/%5BGUIDE%5D-Installing-mods-for-Nova-Chrysalia)
 from the [official Discord server](https://discord.gg/mvqaETHjbh) to patch the game.
 It also applies the 4 GB patch.
 
@@ -77,8 +77,13 @@ It also applies the 4 GB patch.
 
 ## Installation
 
-Only the latest Steam builds are supported. Microsoft Store releases are not
+> [!IMPORTANT]
+> Don't combine it with FF13Fix or similar setups, it's not compatible.
+>
+>Only the latest Steam builds are supported. Microsoft Store releases are not
 supported yet.
+
+### Windows
 
 Copy `d3d9.dll` next to the game executable:
 
@@ -88,10 +93,13 @@ XIII-2: alba_data/prog/win/bin/ffxiii2img.exe
 LR:     LRFF13.exe
 ```
 
-> [!IMPORTANT]
-> That's it - that's the whole installation.
->
-> Don't combine it with FF13Fix or similar setups, it's not compatible.
+### Linux
+
+Copy `d3d9.dll` to the same location and add this Steam launch option:
+
+```sh
+WINEDLLOVERRIDES="d3d9=n,b" %command%
+```
 
 
 Press `F10` in game to open the settings menu.
