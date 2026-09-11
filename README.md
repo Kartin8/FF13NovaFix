@@ -61,7 +61,7 @@ It also applies the 4 GB patch.
 - Optional faster shadow rendering
 - Mip LOD bias control
 - Automatic QTE prompt switching
-- Makes XIII-2 saves local-first, crash-safe, and recoverable across Steam Cloud conflicts
+- Fixes Steam Cloud save crashes
 - Fixes D3D9 resource-pointer crashes
 
 **Lightning Returns**
@@ -69,8 +69,8 @@ It also applies the 4 GB patch.
 - Removes the forced VSync cap
 - Restores offline Snapshot mode with camera controls, HUD toggle, full-resolution PNG output, and Compose message editing
 - Restores Schemata renaming
-- Restores map-marker renaming
-- Restores white-Chocobo renaming
+- Restores Map marker renaming
+- Restores White Chocobo renaming
 
 
 
