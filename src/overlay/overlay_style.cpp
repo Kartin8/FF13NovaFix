@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <iterator>
 #include <string>
 #include <string_view>
 
@@ -22,6 +23,29 @@ constexpr ImWchar kUiGlyphRanges[]{
     0x25CB, 0x25CB, // circle
     0,
 };
+constexpr ImWchar kJapaneseGlyphRanges[]{
+    0x3000, 0x30FF,
+    0x31F0, 0x31FF,
+    0x3400, 0x4DBF,
+    0x4E00, 0x9FFF,
+    0xF900, 0xFAFF,
+    0,
+};
+constexpr ImWchar kKoreanGlyphRanges[]{
+    0x1100, 0x11FF,
+    0x3130, 0x318F,
+    0xA960, 0xA97F,
+    0xAC00, 0xD7AF,
+    0,
+};
+constexpr ImWchar kChineseGlyphRanges[]{
+    0x3000, 0x303F,
+    0x3100, 0x312F,
+    0x3400, 0x4DBF,
+    0x4E00, 0x9FFF,
+    0xF900, 0xFAFF,
+    0,
+};
 std::atomic_bool g_fontFallbackLogged{};
 
 std::string Utf8(std::wstring_view value) {
@@ -36,28 +60,72 @@ std::string Utf8(std::wstring_view value) {
     return result;
 }
 
-bool AddSystemUiFont(ImGuiIO& io, float scale) {
+std::wstring WindowsFontsDirectory() {
     wchar_t windowsDirectory[MAX_PATH]{};
     const UINT length = GetWindowsDirectoryW(windowsDirectory, MAX_PATH);
-    if (!length || length >= MAX_PATH) return false;
-    const std::wstring fontsDirectory =
-        std::wstring(windowsDirectory, length) + L"\\Fonts\\";
+    if (!length || length >= MAX_PATH) return {};
+    return std::wstring(windowsDirectory, length) + L"\\Fonts\\";
+}
+
+bool AddFirstAvailableFont(ImGuiIO& io, const std::wstring& fontsDirectory,
+                           const wchar_t* const* candidates,
+                           std::size_t candidateCount, float scale,
+                           const ImWchar* glyphRanges, bool merge) {
+    if (fontsDirectory.empty()) return false;
+    ImFontConfig config{};
+    config.MergeMode = merge;
+    config.OversampleH = 1;
+    config.OversampleV = 1;
+    for (std::size_t index = 0; index < candidateCount; ++index) {
+        const std::wstring path = fontsDirectory + candidates[index];
+        if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
+        const std::string utf8Path = Utf8(path);
+        if (!utf8Path.empty() &&
+            io.Fonts->AddFontFromFileTTF(utf8Path.c_str(), 15.0f * scale,
+                                         &config, glyphRanges)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool AddSystemUiFont(ImGuiIO& io, float scale) {
+    const std::wstring fontsDirectory = WindowsFontsDirectory();
     constexpr const wchar_t* candidates[]{
         L"segoeui.ttf",
         L"tahoma.ttf",
         L"arial.ttf",
     };
-    for (const wchar_t* candidate : candidates) {
-        const std::wstring path = fontsDirectory + candidate;
-        if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
-        const std::string utf8Path = Utf8(path);
-        if (!utf8Path.empty() &&
-            io.Fonts->AddFontFromFileTTF(utf8Path.c_str(), 15.0f * scale,
-                                         nullptr, kUiGlyphRanges)) {
-            return true;
-        }
-    }
-    return false;
+    return AddFirstAvailableFont(
+        io, fontsDirectory, candidates, std::size(candidates), scale,
+        kUiGlyphRanges, false);
+}
+
+void AddSystemLanguageFallbacks(ImGuiIO& io, float scale) {
+    const std::wstring fontsDirectory = WindowsFontsDirectory();
+    constexpr const wchar_t* japaneseCandidates[]{
+        L"YuGothR.ttc",
+        L"meiryo.ttc",
+        L"msgothic.ttc",
+    };
+    constexpr const wchar_t* koreanCandidates[]{
+        L"malgun.ttf",
+        L"gulim.ttc",
+    };
+    constexpr const wchar_t* chineseCandidates[]{
+        L"msyh.ttc",
+        L"simsun.ttc",
+        L"mingliu.ttc",
+    };
+    AddFirstAvailableFont(
+        io, fontsDirectory, japaneseCandidates,
+        std::size(japaneseCandidates), scale, kJapaneseGlyphRanges, true);
+    AddFirstAvailableFont(
+        io, fontsDirectory, koreanCandidates,
+        std::size(koreanCandidates), scale, kKoreanGlyphRanges, true);
+    AddFirstAvailableFont(
+        io, fontsDirectory, chineseCandidates,
+        std::size(chineseCandidates), scale, kChineseGlyphRanges, true);
 }
 
 bool AddEmbeddedUiFont(ImGuiIO& io, float scale) {
@@ -125,6 +193,7 @@ void ConfigureFonts(ImGuiIO& io, float scale) {
             LogWarning("Overlay font fallback: Dear ImGui bitmap font");
         }
     }
+    AddSystemLanguageFallbacks(io, scale);
 }
 
 void ConfigureStyle(float scale) {
