@@ -1,0 +1,43 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-x86",
+      "displayName": "Visual Studio 2022 (x86)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "Win32",
+      "binaryDir": "${sourceDir}/build/windows-x86"
+    },
+    {
+      "name": "llvm-mingw-x86",
+      "displayName": "LLVM-MinGW (Windows x86)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/llvm-mingw-x86",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/llvm-mingw-x86.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-release",
+      "configurePreset": "windows-x86",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-debug",
+      "configurePreset": "windows-x86",
+      "configuration": "Debug"
+    },
+    {
+      "name": "llvm-mingw-release",
+      "configurePreset": "llvm-mingw-x86"
+    }
+  ]
+}

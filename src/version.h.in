@@ -1,0 +1,8 @@
+#pragma once
+
+namespace novafix {
+
+inline constexpr char kVersion[] = "@PROJECT_VERSION@";
+
+} // namespace novafix
+

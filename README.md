@@ -62,12 +62,14 @@ It also applies the 4 GB patch.
 - Mip LOD bias control
 - Automatic QTE prompt switching
 - Fixes Steam Cloud save crashes
+- Reconciles newer cross-PC and externally edited saves without silently
+  overwriting the other copy
 - Fixes D3D9 resource-pointer crashes
 
 **Lightning Returns**
 
 - Removes the forced VSync cap
-- Restores offline Snapshot mode with camera controls, HUD toggle, full-resolution PNG output, and Compose message editing
+- Restores offline Snapshot mode with camera controls, HUD toggle, PNG output, and Compose message
 - Restores Schemata renaming
 - Restores Map marker renaming
 - Restores White Chocobo renaming
@@ -151,11 +153,21 @@ order.
 
 
 
+## Building
+
+Install Visual Studio 2022 with the **Desktop development with C++** workload and **C++ CMake tools for Windows**
+Open the repository folder -> Build it
+
+
+
+
 
 
 ## Reporting Issues
 
 If you're reporting an issue, mention which game you're playing, what other mods or wrappers you're using, your system specs, and attach `NovaFix.log`. If the bug is easy to reproduce, please do it again with `Debug` logging enabled and attach that log too. Screenshots or videos help a lot. For save/progression issues, attach the save and steps to reproduce if you can.
+
+Back up the complete save directory before replacing any live file.
 
 Also, especially on laptops, make sure Windows isn't running in some low-power mode and that the charger is actually plugged in properly. All three games can lose a lot of performance on battery, and XIII-2 can get hit especially hard. The games are also very sensitive to overlays, screen capture or recording software, and background processes, so if performance looks much worse than it should, try disabling those first.
 

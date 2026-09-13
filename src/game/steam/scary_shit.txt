@@ -1,0 +1,121 @@
+the most annoying part of the project by far
+
+
+
+
+
+
+steam_keyboard: Opens Steam's gamepad text keyboard and returns submitted,
+canceled, or failed results. Used by the Lightning Returns text editor.
+
+
+
+
+
+steam_cloud_safety: Entry point for the XIII-2 Steam fixes. Validates sgw.dll,
+installs the guarded Steam imports, wraps remote storage, and makes achievement
+requests durable.
+
+
+
+
+
+steam_achievement_policy: Decides whether a queued achievement should wait,
+complete, be set, or flush StoreStats, including retry timing.
+
+
+
+
+
+steam_achievement_queue: Keeps pending XIII-2 achievements in memory and on
+disk until Steam confirms them.
+
+
+
+
+
+steam_pending_journals: Reads and writes the small persistent retry lists for
+achievements, cloud uploads, and cloud deletions.
+
+
+
+
+
+steam_remote_storage_interface: Describes the old 32-bit Steam Remote Storage
+vtable used by sgw.dll.
+
+
+
+
+
+steam_remote_storage_proxy: The game-facing local-first replacement for that
+vtable. Reads and writes the local mirror while remote work stays asynchronous.
+
+
+
+
+
+steam_remote_storage_worker: Owns the background Steam thread, durable retry
+queues, startup reconciliation, uploads, deletions, and remote preservation.
+
+
+
+
+
+steam_remote_storage_policy: Contains the small side-effect-free decisions for
+read selection, cloud mutation availability, and remote catalog validation.
+
+
+
+
+
+steam_remote_storage_catalog: Presents the local .dat files as the Steam file
+catalog while hiding deletions that are still pending.
+
+
+
+
+
+steam_save_files: Low-level filename validation, save paths, bounded reads,
+directory creation, durable temporary writes, and atomic replacement.
+
+
+
+
+
+steam_save_mirror: Serializes local save mutations, creates checkpoints,
+imports remote saves conditionally, archives conflicts, and exposes file data.
+
+
+
+
+
+steam_save_checkpoints: Rotates five recovery copies and captures the first
+pre-mutation version of each save once per process.
+
+
+
+
+
+steam_save_identity: Computes a size plus SHA-256 identity for save contents.
+
+
+
+
+
+steam_save_sync_state: Persists the last successfully synchronized identity of
+each save so later reconciliation can tell which side changed.
+
+
+
+
+
+steam_save_reconciliation_policy: Chooses import, upload, alignment, or
+local-wins conflict handling from local, remote, and synchronized identities.
+
+
+
+
+
+steam_shutdown_guard: Drains the cloud worker and delays the real Steam shutdown
+until sgw.dll has unregistered the callback objects it still owns.

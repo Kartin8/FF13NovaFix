@@ -1,0 +1,25 @@
+; Keep the public system/DXVK d3d9 ordinals.
+LIBRARY d3d9
+EXPORTS
+    Direct3D9ForceHybridEnumeration=@EXPORT_SYMBOL_PREFIX@Direct3D9ForceHybridEnumeration@4 @16 NONAME PRIVATE
+    Direct3DCreate9On12=@EXPORT_SYMBOL_PREFIX@Direct3DCreate9On12@12 @20
+    Direct3DCreate9On12Ex=@EXPORT_SYMBOL_PREFIX@Direct3DCreate9On12Ex@16 @21
+    Direct3DShaderValidatorCreate9=@EXPORT_SYMBOL_PREFIX@Direct3DShaderValidatorCreate9@0 @24
+    PSGPError=@EXPORT_SYMBOL_PREFIX@PSGPError@12 @25
+    PSGPSampleTexture=@EXPORT_SYMBOL_PREFIX@PSGPSampleTexture@20 @26
+    D3DPERF_BeginEvent=@EXPORT_SYMBOL_PREFIX@D3DPERF_BeginEvent@8 @27
+    D3DPERF_EndEvent=@EXPORT_SYMBOL_PREFIX@D3DPERF_EndEvent@0 @28
+    D3DPERF_GetStatus=@EXPORT_SYMBOL_PREFIX@D3DPERF_GetStatus@0 @29
+    D3DPERF_QueryRepeatFrame=@EXPORT_SYMBOL_PREFIX@D3DPERF_QueryRepeatFrame@0 @30
+    D3DPERF_SetMarker=@EXPORT_SYMBOL_PREFIX@D3DPERF_SetMarker@8 @31
+    D3DPERF_SetOptions=@EXPORT_SYMBOL_PREFIX@D3DPERF_SetOptions@4 @32
+    D3DPERF_SetRegion=@EXPORT_SYMBOL_PREFIX@D3DPERF_SetRegion@8 @33
+    DebugSetLevel=@EXPORT_SYMBOL_PREFIX@DebugSetLevel@0 @34
+    DebugSetMute=@EXPORT_SYMBOL_PREFIX@DebugSetMute@0 @35
+    Direct3D9EnableMaximizedWindowedModeShim=@EXPORT_SYMBOL_PREFIX@Direct3D9EnableMaximizedWindowedModeShim@4 @36
+    Direct3DCreate9=@EXPORT_SYMBOL_PREFIX@Direct3DCreate9@4 @37
+    Direct3DCreate9Ex=@EXPORT_SYMBOL_PREFIX@Direct3DCreate9Ex@8 @38
+    NovaFix_IsOverlayOpen=@EXPORT_SYMBOL_PREFIX@NovaFix_IsOverlayOpen@0 @100
+    NovaFix_RestartHelper=@EXPORT_SYMBOL_PREFIX@NovaFix_RestartHelper@16 @101
+    DXVK_RegisterAnnotation=@EXPORT_SYMBOL_PREFIX@DXVK_RegisterAnnotation@4 @28257 NONAME PRIVATE
+    DXVK_UnRegisterAnnotation=@EXPORT_SYMBOL_PREFIX@DXVK_UnRegisterAnnotation@4 @28258 NONAME PRIVATE

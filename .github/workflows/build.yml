@@ -1,0 +1,54 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  LLVM_MINGW_VERSION: 20260826
+
+permissions:
+  contents: read
+
+jobs:
+  msvc:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake --preset windows-x86
+      - run: cmake --build --preset windows-release --parallel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NovaFix-msvc-x86
+          path: build/windows-x86/Release/d3d9.dll
+
+  llvm-mingw:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            package: ucrt-ubuntu-22.04-x86_64.tar.xz
+            artifact: linux
+          - runner: macos-14
+            package: ucrt-macos-universal.tar.xz
+            artifact: macos
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM-MinGW
+        shell: bash
+        run: |
+          mkdir "$RUNNER_TEMP/llvm-mingw"
+          curl --fail --location --retry 3 \
+            "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/llvm-mingw-$LLVM_MINGW_VERSION-${{ matrix.package }}" \
+            --output "$RUNNER_TEMP/llvm-mingw.tar.xz"
+          tar -xf "$RUNNER_TEMP/llvm-mingw.tar.xz" \
+            --strip-components=1 -C "$RUNNER_TEMP/llvm-mingw"
+          echo "$RUNNER_TEMP/llvm-mingw/bin" >> "$GITHUB_PATH"
+      - run: cmake --preset llvm-mingw-x86
+      - run: cmake --build --preset llvm-mingw-release --parallel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NovaFix-llvm-mingw-x86-${{ matrix.artifact }}
+          path: build/llvm-mingw-x86/d3d9.dll
