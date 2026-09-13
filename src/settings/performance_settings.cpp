@@ -123,11 +123,6 @@ void EnsureLoaded() {
 }
 
 void AddSetting(std::vector<ini::Entry>& entries, const wchar_t* key,
-                unsigned value) {
-    entries.push_back({key, std::to_wstring(value)});
-}
-
-void AddSetting(std::vector<ini::Entry>& entries, const wchar_t* key,
                 bool value) {
     entries.push_back({key, ini::FormatBoolean(value)});
 }
