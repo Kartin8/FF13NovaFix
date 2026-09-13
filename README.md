@@ -111,7 +111,7 @@ WINEDLLOVERRIDES="d3d9=n,b" %command%
 ```
 
 
-Press `F10` in game to open the settings menu.
+Press `F10` in game to open the settings menu. You can also open it with a controller by holding both stick clicks or `Start + Back`, depending on your controller setup. This works on Windows too, not just on Steam Deck / Steam Machines.
 
 
 
