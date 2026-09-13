@@ -7,7 +7,6 @@
 
 
 
-
 Proxy for the PC versions of Final Fantasy XIII,
 Final Fantasy XIII-2, and Lightning Returns
 
@@ -18,10 +17,6 @@ Check [here](docs/HOOKS_AND_PATCHES.md) for imported functions,
 vtable hooks, and executable patch locations.
 [And the API info is here](docs/PLUGIN_API.md).
 
-
->For the best experience, use the [Nova Chrysalia mod loader](https://github.com/LR-Research-Team/Datalog/wiki/%5BGUIDE%5D-Installing-mods-for-Nova-Chrysalia)
-from the [official Discord server](https://discord.gg/mvqaETHjbh) to patch the game.
-It also applies the 4 GB patch.
 
 
 ## Features
@@ -84,10 +79,17 @@ It also applies the 4 GB patch.
 ## Installation
 
 > [!IMPORTANT]
-> Don't combine it with FF13Fix or similar setups, it's not compatible.
+> **DO NOT** combine it with FF13Fix or similar setups, **IT'S NOT COMPATIBLE**.
 >
->Only the latest Steam builds are supported. Microsoft Store releases are not
+>Only the latest Steam builds are supported. Microsoft Store releases **ARE NOT**
 supported yet.
+
+> [!CAUTION]
+> It is **HIGHLY RECOMMENDED** to use the [Nova Chrysalia mod loader](https://github.com/LR-Research-Team/Datalog/wiki/%5BGUIDE%5D-Installing-mods-for-Nova-Chrysalia) from the [official Discord server](https://discord.gg/mvqaETHjbh) to patch the game. It applies the 4 GB patch; without it, the game is likely to **CRASH** before even reaching gameplay. Other 4 GB patches either force you to use FF13Fix or trigger Steam DRM, so **DON'T USE THEM.**
+>
+> Nova Chrysalia is **NOT compatible with the Microsoft Store builds**.
+>
+> The mod loader is not required to keep playing the games afterward. If you're not interested in modding, just launch the game through the mod loader once and that's it.
 
 ### Windows
 
@@ -98,6 +100,7 @@ XIII:   white_data/prog/win/bin/ffxiiiimg.exe
 XIII-2: alba_data/prog/win/bin/ffxiii2img.exe
 LR:     LRFF13.exe
 ```
+If you already have FF13Fix installed (it also uses `d3d9.dll`), just overwrite it with NovaFix `d3d9.dll`
 
 ### Linux
 
@@ -112,7 +115,7 @@ Press `F10` in game to open the settings menu.
 
 
 
-
+<br>
 
 
 
@@ -125,7 +128,7 @@ For DXVK on Windows, place the 32-bit `d3d9.dll` next to the proxy as `dxvk.dll`
 and select `Local DXVK` under Performance / Advanced.
 
 For ReShade, create a `ReShade` directory next to NovaFix and place the
-32-bit D3D9 ReShade DLL there as `ReShade\d3d9.dll`.
+32-bit D3D9 ReShade DLL there as `ReShade\d3d9.dll`, **any other method will crash the game.**
 
 Keep `ReShade.ini` and `reshade-shaders` in that directory as well, then
 leave the renderer set to `Automatic`.
@@ -133,7 +136,7 @@ leave the renderer set to `Automatic`.
 
 
 
-
+<br>
 
 
 
@@ -150,7 +153,7 @@ alphabetically, so prefixes such as `00_` and `10_` can be used to control load
 order.
 
 
-
+<br>
 
 
 ## Building
@@ -159,7 +162,7 @@ Install Visual Studio 2022 with the **Desktop development with C++** workload an
 Open the repository folder -> Build it
 
 
-
+<br>
 
 
 
@@ -176,17 +179,17 @@ If the problem only shows up while recording, I can't really speak for other sof
 
 
 
-
+<br>
 
 
 ## Credits
 
-Special thanks to [Dendonflo](https://github.com/Dendonflo), [Surihix](https://github.com/Surihix), [BtEtta](https://github.com/BtEtta), H4NS, [Null&Void](https://codeberg.org/hectormiguel1), and [Cyanea](https://www.nexusmods.com/profile/cyaneaBt/mods) for testing NovaFix and reporting bugs, both in the proxy itself and in the original games that I hadn't noticed on my own.
+Special thanks to [Dendonflo](https://github.com/Dendonflo), [Surihix](https://github.com/Surihix), [BtEtta](https://github.com/BtEtta), H4NS, MorningSpice, [Null&Void](https://codeberg.org/hectormiguel1), and [Cyanea](https://www.nexusmods.com/profile/cyaneaBt/mods) for testing NovaFix and reporting bugs, both in the proxy itself and in the original games that I hadn't noticed on my own.
 
 And thanks to the original [FF13Fix](https://github.com/rebtd7/FF13Fix) author and everyone who contributed to it. Their work made the entry point into the deeper fixes for these games a lot easier.
 
 
-
+<br>
 
 
 
