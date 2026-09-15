@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 project(NovaFix VERSION 1.0.0 LANGUAGES C CXX RC)
 
-option(NOVAFIX_BUILD_INTERNAL_TESTS
-       "Build NovaFix internal policy and filesystem tests" OFF)
 
 if(NOT WIN32)
     message(FATAL_ERROR "NovaFix must be built for a Windows target")
