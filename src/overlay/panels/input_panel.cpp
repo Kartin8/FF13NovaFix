@@ -36,8 +36,7 @@ constexpr settings::OverlayHotkey kOverlayHotkeys[]{
 
 constexpr settings::OverlayGamepadHotkey kOverlayGamepadHotkeys[]{
     settings::OverlayGamepadHotkey::Disabled,
-    settings::OverlayGamepadHotkey::StickClicks,
-    settings::OverlayGamepadHotkey::ViewMenu,
+    settings::OverlayGamepadHotkey::Both,
 };
 
 void EnsureSettings() {

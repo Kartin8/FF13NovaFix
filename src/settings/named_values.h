@@ -19,6 +19,6 @@ inline constexpr const wchar_t* kOverlayHotkey[]{
     L"Disabled", L"F8", L"F9", L"F10", L"F11", L"F12", L"Grave",
     L"Insert", L"Home"};
 inline constexpr const wchar_t* kOverlayGamepadHotkey[]{
-    L"Disabled", L"StickClicks", L"ViewMenu"};
+    L"Disabled", L"StickClicks", L"ViewMenu", L"Both"};
 
 } // namespace novafix::settings::names

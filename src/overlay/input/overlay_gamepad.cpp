@@ -30,8 +30,9 @@ std::atomic_bool g_releasePending{false};
 } // namespace
 
 bool PollToggle(settings::OverlayGamepadHotkey binding, bool menuOpen) {
-    const std::uint16_t mask = OverlayGamepadHotkeyMask(binding);
-    const bool shouldPoll = mask != 0u || menuOpen || CapturesInput();
+    const bool enabled = binding !=
+        settings::OverlayGamepadHotkey::Disabled;
+    const bool shouldPoll = enabled || menuOpen || CapturesInput();
     if (!shouldPoll) {
         g_hotkey = {};
         g_hotkey.binding = binding;
@@ -48,8 +49,13 @@ bool PollToggle(settings::OverlayGamepadHotkey binding, bool menuOpen) {
         g_releasePending.store(false, std::memory_order_release);
     }
 
-    const bool down = mask != 0u &&
-        (g_hotkey.state.buttons & mask) == mask;
+    constexpr std::uint16_t stickClicks =
+        XINPUT_GAMEPAD_LEFT_THUMB | XINPUT_GAMEPAD_RIGHT_THUMB;
+    constexpr std::uint16_t viewMenu =
+        XINPUT_GAMEPAD_BACK | XINPUT_GAMEPAD_START;
+    const bool down = enabled &&
+        (((g_hotkey.state.buttons & stickClicks) == stickClicks) ||
+         ((g_hotkey.state.buttons & viewMenu) == viewMenu));
     if (g_hotkey.binding != binding) {
         g_hotkey.binding = binding;
         g_hotkey.wasDown = down;

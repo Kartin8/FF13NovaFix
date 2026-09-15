@@ -194,7 +194,7 @@ void AppendInput(std::string& output) {
         output, "AlternateOverlayHotkey",
         static_cast<unsigned>(value.alternateOverlayHotkey),
         names::kOverlayHotkey);
-    AppendLine(output, "; Disabled | StickClicks | ViewMenu");
+    AppendLine(output, "; Disabled | Both");
     AppendNamedValue(
         output, "OverlayGamepadHotkey",
         static_cast<unsigned>(value.overlayGamepadHotkey),

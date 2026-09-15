@@ -4,7 +4,6 @@
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
-#include <xinput.h>
 
 #include <limits>
 
@@ -84,22 +83,9 @@ const char* OverlayGamepadHotkeyName(
     case Hotkey::Disabled: return "Disabled";
     case Hotkey::StickClicks: return "L3 + R3";
     case Hotkey::ViewMenu: return "View + Menu";
+    case Hotkey::Both: return "L3 + R3 or View + Menu";
     }
     return "Disabled";
-}
-
-std::uint16_t OverlayGamepadHotkeyMask(
-    settings::OverlayGamepadHotkey hotkey) {
-    using Hotkey = settings::OverlayGamepadHotkey;
-    switch (hotkey) {
-    case Hotkey::StickClicks:
-        return XINPUT_GAMEPAD_LEFT_THUMB | XINPUT_GAMEPAD_RIGHT_THUMB;
-    case Hotkey::ViewMenu:
-        return XINPUT_GAMEPAD_BACK | XINPUT_GAMEPAD_START;
-    case Hotkey::Disabled:
-        return 0u;
-    }
-    return 0u;
 }
 
 } // namespace novafix::input

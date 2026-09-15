@@ -22,8 +22,10 @@ enum class OverlayHotkey : unsigned {
 
 enum class OverlayGamepadHotkey : unsigned {
     Disabled,
+    // Legacy values are retained so existing INI files can be migrated.
     StickClicks,
     ViewMenu,
+    Both,
 };
 
 struct InputSettings {
@@ -33,7 +35,7 @@ struct InputSettings {
     OverlayHotkey overlayHotkey{OverlayHotkey::F10};
     OverlayHotkey alternateOverlayHotkey{OverlayHotkey::Grave};
     OverlayGamepadHotkey overlayGamepadHotkey{
-        OverlayGamepadHotkey::StickClicks};
+        OverlayGamepadHotkey::Both};
 };
 
 InputSettings ActiveInput();

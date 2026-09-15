@@ -34,7 +34,11 @@ void Normalize(InputSettings& value) {
                    static_cast<unsigned>(OverlayHotkey::Home)));
     value.overlayGamepadHotkey = static_cast<OverlayGamepadHotkey>(
         std::clamp(static_cast<unsigned>(value.overlayGamepadHotkey), 0u,
-                   static_cast<unsigned>(OverlayGamepadHotkey::ViewMenu)));
+                   static_cast<unsigned>(OverlayGamepadHotkey::Both)));
+    if (value.overlayGamepadHotkey == OverlayGamepadHotkey::StickClicks ||
+        value.overlayGamepadHotkey == OverlayGamepadHotkey::ViewMenu) {
+        value.overlayGamepadHotkey = OverlayGamepadHotkey::Both;
+    }
     if (value.overlayHotkey == OverlayHotkey::Disabled &&
         value.alternateOverlayHotkey == OverlayHotkey::Disabled) {
         value.overlayHotkey = OverlayHotkey::F10;
@@ -70,7 +74,7 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
                 g_configPath, L"Input", L"OverlayGamepadHotkey",
                 names::kOverlayGamepadHotkey,
                 static_cast<unsigned>(
-                    OverlayGamepadHotkey::StickClicks)));
+                    OverlayGamepadHotkey::Both)));
     }
     Normalize(loaded);
     g_active = loaded;
