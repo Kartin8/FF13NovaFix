@@ -47,13 +47,21 @@ constexpr CapabilityMask kCapabilities =
     CapabilityBit(Capability::HighResolutionHudSampling) |
     CapabilityBit(Capability::ArbitraryAspectRatio);
 
-constexpr std::array<BuildDescriptor, 1> kBuilds{{
+constexpr std::array<BuildDescriptor, 2> kBuilds{{
     {
         {IMAGE_FILE_MACHINE_I386, IMAGE_NT_OPTIONAL_HDR32_MAGIC,
          0x548043BEu, 82325504u, 9754222u, 0xB997E471B28C040Eull},
         ReleaseChannel::Steam,
         "Steam 2014 (original CEG executable)",
         "Steam 2014 CEG layout (modified executable)",
+        kCapabilities,
+    },
+    {
+        {IMAGE_FILE_MACHINE_I386, IMAGE_NT_OPTIONAL_HDR32_MAGIC,
+         0x548043BEu, 82911232u, 9754222u, 0xB997E471B28C040Eull},
+        ReleaseChannel::Steam,
+        "Steam 2014 Asia (original executable)",
+        "Steam 2014 Asia layout (modified executable)",
         kCapabilities,
     },
 }};
