@@ -68,7 +68,7 @@ vtable hooks, and executable patch locations.
 - Restores Schemata renaming
 - Restores Map marker renaming
 - Restores White Chocobo renaming
-
+- Prevents Steam overlay crash with DXVK on Windows
 
 
 

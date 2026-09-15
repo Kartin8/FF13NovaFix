@@ -4,6 +4,7 @@
 #include "common/module_path.h"
 #include "compat/compatibility.h"
 #include "compat/platform.h"
+#include "game/core/game_profile.h"
 #include "settings/performance_settings.h"
 
 #include <array>
@@ -148,6 +149,36 @@ bool IsProxyPath(const std::wstring& candidatePath) {
     return SameFile(path::ModuleFile(OwnModule()), candidatePath);
 }
 
+void PrepareLocalDxvkCompatibility(Kind kind) {
+    if (kind != Kind::DXVK ||
+        game::CurrentProfile().title != game::Title::LightningReturns) {
+        return;
+    }
+
+    // Steam explicitly enables its Vulkan overlay layer in the process
+    // environment.  In LR the layer keeps a stale presentation callback
+    // across the startup movie transition and executes freed heap memory.
+    // Disable only the Vulkan path; gameoverlayrenderer.dll remains injected
+    // and can continue to use its ordinary D3D9 interception path over DXVK.
+    constexpr wchar_t kEnableVariable[] =
+        L"ENABLE_VK_LAYER_VALVE_steam_overlay_1";
+    constexpr wchar_t kDisableVariable[] =
+        L"DISABLE_VK_LAYER_VALVE_steam_overlay_1";
+
+    const bool enableCleared =
+        SetEnvironmentVariableW(kEnableVariable, nullptr) != FALSE;
+    const bool disableSet =
+        SetEnvironmentVariableW(kDisableVariable, L"1") != FALSE;
+    if (enableCleared && disableSet) {
+        LogInfo("LR Local DXVK: disabled the unstable Steam Vulkan overlay layer");
+    } else {
+        LogWarning(
+            "LR Local DXVK: could not disable the Steam Vulkan overlay layer "
+            "(enable-clear=%d disable-set=%d error=%lu)",
+            enableCleared ? 1 : 0, disableSet ? 1 : 0, GetLastError());
+    }
+}
+
 HMODULE LoadBackendLibrary(const std::wstring& filePath, DWORD* error) {
     if (error) *error = ERROR_SUCCESS;
     constexpr DWORD safeFlags =
@@ -217,6 +248,8 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
             if (candidate.kind == Kind::DXVK) requestedDxvkFailed = true;
             continue;
         }
+
+        PrepareLocalDxvkCompatibility(candidate.kind);
 
         DWORD loadError = ERROR_SUCCESS;
         HMODULE loaded = LoadBackendLibrary(candidate.path, &loadError);
