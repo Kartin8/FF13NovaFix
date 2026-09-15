@@ -5,6 +5,7 @@
 #include "compat/compatibility.h"
 #include "game/core/game_profile.h"
 #include "game/shared/ui/scissor_fix.h"
+#include "notifications/sounds.h"
 #include "overlay/input/overlay_gamepad.h"
 #include "overlay/input/overlay_hotkey.h"
 #include "input/win32_input.h"
@@ -157,6 +158,7 @@ void ToggleIfRequested() {
         ui::FinishSettingsEdits();
     }
     g_open.store(open, std::memory_order_relaxed);
+    notifications::sounds::PlayMenuTransition(open);
     g_mainPanelVisible = open;
     g_navigationFocusRequested.store(
         open && gamepadPressed, std::memory_order_release);

@@ -47,6 +47,8 @@ void PreserveOtherSettings(
     const settings::PerformanceSettings stored = settings::StoredPerformance();
     value.smartControllerHotplug = stored.smartControllerHotplug;
     value.showFpsCounter = stored.showFpsCounter;
+    value.startupSound = stored.startupSound;
+    value.menuSounds = stored.menuSounds;
     value.loadedModulesNotificationMode = stored.loadedModulesNotificationMode;
     if (!IsLightningReturns()) return;
     value.frameRateLimit = stored.frameRateLimit;

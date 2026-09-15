@@ -40,7 +40,7 @@ void DrawTabs() {
     DrawTab("Performance", &DrawPerformancePanel);
     DrawTab("Input", &DrawInputPanel);
     DrawTab("Diagnostics", &DrawDiagnosticsPanel);
-    DrawTab("Add-ons", &DrawPluginPanel);
+    DrawTab("Add-ons & extra", &DrawPluginPanel);
     ImGui::EndTabBar();
 }
 

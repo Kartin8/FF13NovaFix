@@ -168,6 +168,7 @@ set(NOVAFIX_SOURCES
     src/input/win32_input.cpp
     src/launcher/command_line.cpp
     src/launcher/command_line_rewriter.cpp
+    src/notifications/sounds.cpp
     src/overlay/overlay.cpp
     src/overlay/overlay_style.cpp
     src/overlay/settings_window.cpp
@@ -265,7 +266,7 @@ else()
 endif()
 
 target_link_libraries(d3d9 PRIVATE
-    bcrypt dwmapi dxguid ole32 user32 version windowscodecs minhook)
+    bcrypt dwmapi dxguid ole32 user32 version windowscodecs winmm minhook)
 if(MSVC)
     target_link_options(d3d9 PRIVATE
         $<$<CONFIG:Release>:/OPT:REF>

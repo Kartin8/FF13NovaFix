@@ -38,6 +38,8 @@ struct PerformanceSettings {
     bool highFpsCorrectness{true};
     bool xiii2OptimizeStateSubmission{true};
     bool showFpsCounter{false};
+    bool startupSound{true};
+    bool menuSounds{true};
     LoadedModulesNotificationMode loadedModulesNotificationMode{
         LoadedModulesNotificationMode::WhenChanged};
     D3D9Backend d3d9Backend{D3D9Backend::Automatic};

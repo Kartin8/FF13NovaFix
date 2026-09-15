@@ -30,6 +30,8 @@ void ApplyLiveFields(PerformanceSettings& target,
     target.smartControllerHotplug = source.smartControllerHotplug;
     target.highFpsCorrectness = source.highFpsCorrectness;
     target.showFpsCounter = source.showFpsCounter;
+    target.startupSound = source.startupSound;
+    target.menuSounds = source.menuSounds;
     target.loadedModulesNotificationMode =
         source.loadedModulesNotificationMode;
 }
@@ -81,6 +83,12 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
         loaded.showFpsCounter = ini::ReadBoolean(
             g_configPath, L"Performance", L"ShowFpsCounter",
             loaded.showFpsCounter);
+        loaded.startupSound = ini::ReadBoolean(
+            g_configPath, L"Performance", L"StartupSound",
+            loaded.startupSound);
+        loaded.menuSounds = ini::ReadBoolean(
+            g_configPath, L"Performance", L"MenuSounds",
+            loaded.menuSounds);
         loaded.smartControllerHotplug = ini::ReadBoolean(
             g_configPath, L"Performance", L"SmartControllerHotplug", loaded.smartControllerHotplug);
         loaded.schedulingStability = ini::ReadBoolean(
@@ -107,12 +115,12 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
     Normalize(loaded);
     g_active = loaded;
     g_stored = loaded;
-    Log("Performance settings: presentation-controls=%d limit=%u smart-hotplug=%d vsync=%u refresh=%u triple=%u scheduling=%d high-fps-correctness=%d xiii2-state-submission=%d fps-counter=%d module-notification=%u d3d9-backend=%u",
+    Log("Performance settings: presentation-controls=%d limit=%u smart-hotplug=%d vsync=%u refresh=%u triple=%u scheduling=%d high-fps-correctness=%d xiii2-state-submission=%d fps-counter=%d startup-sound=%d menu-sounds=%d module-notification=%u d3d9-backend=%u",
         presentationControls, loaded.frameRateLimit, loaded.smartControllerHotplug,
         static_cast<unsigned>(loaded.vsyncMode), loaded.refreshRate,
         static_cast<unsigned>(loaded.tripleBuffering), loaded.schedulingStability,
         loaded.highFpsCorrectness, loaded.xiii2OptimizeStateSubmission,
-        loaded.showFpsCounter,
+        loaded.showFpsCounter, loaded.startupSound, loaded.menuSounds,
         static_cast<unsigned>(loaded.loadedModulesNotificationMode),
         static_cast<unsigned>(loaded.d3d9Backend));
     return TRUE;
@@ -181,7 +189,7 @@ bool SavePerformance(const PerformanceSettings& requested) {
     const bool presentationControls =
         g_presentationControlsEnabled.load(std::memory_order_acquire);
     std::vector<ini::Entry> entries;
-    entries.reserve(10);
+    entries.reserve(12);
     if (presentationControls) {
         AddSetting(entries, L"FrameRateLimit", value.frameRateLimit,
                    names::kFrameRateLimit);
@@ -194,6 +202,8 @@ bool SavePerformance(const PerformanceSettings& requested) {
                    names::kTripleBuffering);
     }
     AddSetting(entries, L"ShowFpsCounter", value.showFpsCounter);
+    AddSetting(entries, L"StartupSound", value.startupSound);
+    AddSetting(entries, L"MenuSounds", value.menuSounds);
     AddSetting(entries, L"SmartControllerHotplug", value.smartControllerHotplug);
     AddSetting(entries, L"SchedulingStability", value.schedulingStability);
     AddSetting(entries, L"HighFpsCorrectness", value.highFpsCorrectness);
@@ -213,13 +223,13 @@ bool SavePerformance(const PerformanceSettings& requested) {
         g_activeGeneration.fetch_add(1, std::memory_order_release);
         ReleaseSRWLockExclusive(&g_lock);
     }
-    Log("Performance settings saved: config=%d presentation-controls=%d limit=%u smart-hotplug=%d vsync=%u refresh=%u triple=%u scheduling=%d high-fps-correctness=%d xiii2-state-submission=%d fps-counter=%d module-notification=%u d3d9-backend=%u",
+    Log("Performance settings saved: config=%d presentation-controls=%d limit=%u smart-hotplug=%d vsync=%u refresh=%u triple=%u scheduling=%d high-fps-correctness=%d xiii2-state-submission=%d fps-counter=%d startup-sound=%d menu-sounds=%d module-notification=%u d3d9-backend=%u",
         saved, presentationControls, value.frameRateLimit,
         value.smartControllerHotplug,
         static_cast<unsigned>(value.vsyncMode), value.refreshRate,
         static_cast<unsigned>(value.tripleBuffering), value.schedulingStability,
         value.highFpsCorrectness, value.xiii2OptimizeStateSubmission,
-        value.showFpsCounter,
+        value.showFpsCounter, value.startupSound, value.menuSounds,
         static_cast<unsigned>(value.loadedModulesNotificationMode),
         static_cast<unsigned>(value.d3d9Backend));
     return saved;

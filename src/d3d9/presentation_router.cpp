@@ -9,6 +9,7 @@
 #include "game/core/game_profile.h"
 #include "game/titles/lightning_returns/snapshot/mode_controller.h"
 #include "game/shared/ui/startup_module_notification.h"
+#include "notifications/sounds.h"
 #include "overlay/overlay.h"
 #include "patch/integrity_monitor.h"
 #include "performance/frame_limiter.h"
@@ -92,6 +93,9 @@ bool Begin(IDirect3DDevice9* device, HWND window, Path path) {
 }
 
 void End(HRESULT result) {
+    if (SUCCEEDED(result)) {
+        notifications::sounds::OnSuccessfulPresent();
+    }
     performance::EndFrame(result);
     g_insidePresent = false;
 }

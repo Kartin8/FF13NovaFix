@@ -22,11 +22,25 @@ constexpr const char* kLoadedModulesNotificationLabels[]{
     "Every launch",
 };
 
-void DrawAddonNotificationSetting() {
+void DrawExtraSettings() {
     if (!widgets::BeginSettingsTable("##AddonNotificationSettings")) return;
 
     settings::PerformanceSettings performance =
         settings::StoredPerformance();
+    widgets::SettingRow(
+        "Startup sound",
+        "Plays once after NovaFix handles the first successful frame");
+    if (ImGui::Checkbox("##StartupSound", &performance.startupSound)) {
+        settings::SavePerformance(performance);
+    }
+
+    widgets::SettingRow(
+        "Menu sounds",
+        "Plays a subtle sound when the NovaFix menu opens or closes");
+    if (ImGui::Checkbox("##MenuSounds", &performance.menuSounds)) {
+        settings::SavePerformance(performance);
+    }
+
     widgets::SettingRow("Add-on notification");
     int mode = static_cast<int>(
         performance.loadedModulesNotificationMode);
@@ -156,7 +170,7 @@ void DrawStandaloneControl(const compat::plugin_controls::Plugin& plugin,
 } // namespace
 
 void DrawPluginPanel() {
-    DrawAddonNotificationSetting();
+    DrawExtraSettings();
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Text,
                           ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));

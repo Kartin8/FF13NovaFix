@@ -151,6 +151,8 @@ void AppendPerformance(std::string& output, game::Title title) {
 
     AppendLine(output);
     AppendLine(output, "; NOTIFICATIONS");
+    AppendBoolean(output, "StartupSound", value.startupSound);
+    AppendBoolean(output, "MenuSounds", value.menuSounds);
     AppendLine(output, "; Never | WhenChanged | EveryLaunch");
     AppendNamedValue(
         output, "LoadedModulesNotificationMode",
