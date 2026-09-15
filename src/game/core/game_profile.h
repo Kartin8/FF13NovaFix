@@ -49,6 +49,7 @@ enum class Capability : std::uint64_t {
     SchemataRename = 1ull << 20,
     MapMarkerRename = 1ull << 21,
     ChocoboRename = 1ull << 22,
+    ArbitraryAspectRatio = 1ull << 23,
 };
 
 using CapabilityMask = std::uint64_t;

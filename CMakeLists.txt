@@ -56,6 +56,8 @@ set(NOVAFIX_SOURCES
     src/d3d9/swap_chain_proxy.cpp
     src/diagnostics/crash_dumps.cpp
     src/display/display_profile.cpp
+    src/display/aspect_ratio.cpp
+    src/display/aspect_runtime.cpp
     src/display/dpi_awareness.cpp
     src/display/monitor_layout.cpp
     src/display/presentation_policy.cpp
@@ -105,6 +107,7 @@ set(NOVAFIX_SOURCES
     src/game/titles/ff13_2/animation/chain_timing.cpp
     src/game/titles/ff13_2/animation/root_motion.cpp
     src/game/titles/ff13_2/camera/chocobo_race.cpp
+    src/game/titles/ff13_2/camera/aspect_ratio.cpp
     src/game/titles/ff13_2/camera/scene_a_bahamut.cpp
     src/game/titles/ff13_2/rendering/hud_sampling.cpp
     src/game/titles/ff13_2/rendering/shadows/alias_transaction.cpp
@@ -128,6 +131,7 @@ set(NOVAFIX_SOURCES
     src/game/titles/ff13_2/ui/qte/qte_prompt_lifecycle.cpp
     src/game/titles/ff13_2/ui/qte/qte_visual_bundles.cpp
     src/game/titles/ff13_2/ui/addon_notification.cpp
+    src/game/titles/ff13_2/ui/main_menu_frame.cpp
     src/game/titles/lightning_returns/title_adapter.cpp
     src/game/titles/lightning_returns/naming/chocobo_name.cpp
     src/game/titles/lightning_returns/naming/map_marker_name.cpp

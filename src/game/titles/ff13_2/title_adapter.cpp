@@ -7,6 +7,7 @@
 #include "game/steam/steam_cloud_safety.h"
 #include "game/titles/ff13_2/animation/chain_timing.h"
 #include "game/titles/ff13_2/animation/root_motion.h"
+#include "game/titles/ff13_2/camera/aspect_ratio.h"
 #include "game/titles/ff13_2/camera/chocobo_race.h"
 #include "game/titles/ff13_2/camera/scene_a_bahamut.h"
 #include "game/titles/ff13_2/rendering/hud_sampling.h"
@@ -16,6 +17,7 @@
 #include "game/titles/ff13_2/resources/unwrap.h"
 #include "game/titles/ff13_2/timing/cutscene_terminal_frame.h"
 #include "game/titles/ff13_2/timing/frame_pacing_runtime.h"
+#include "game/titles/ff13_2/ui/main_menu_frame.h"
 #include "game/titles/ff13_2/ui/prompt_mode_manager.h"
 
 #include <windows.h>
@@ -42,7 +44,8 @@ constexpr CapabilityMask kCapabilities =
     CapabilityBit(Capability::TextureFiltering) |
     CapabilityBit(Capability::ShaderCorrection) |
     CapabilityBit(Capability::MemorySafety) |
-    CapabilityBit(Capability::HighResolutionHudSampling);
+    CapabilityBit(Capability::HighResolutionHudSampling) |
+    CapabilityBit(Capability::ArbitraryAspectRatio);
 
 constexpr std::array<BuildDescriptor, 1> kBuilds{{
     {
@@ -55,7 +58,11 @@ constexpr std::array<BuildDescriptor, 1> kBuilds{{
     },
 }};
 
-constexpr std::array<FeatureDescriptor, 17> kFeatures{{
+constexpr std::array<FeatureDescriptor, 19> kFeatures{{
+    {"arbitrary-aspect-ratio", Capability::ArbitraryAspectRatio,
+     &xiii2_aspect_ratio::Initialize, nullptr, nullptr},
+    {"shared-main-menu-wide-frame", Capability::ArbitraryAspectRatio,
+     &xiii2_main_menu_frame::Initialize, nullptr, nullptr},
     {"frame-pacing", Capability::FramePacing,
      &xiii2_frame_pacing_runtime::Initialize,
      &xiii2_frame_pacing_runtime::Pump, nullptr},

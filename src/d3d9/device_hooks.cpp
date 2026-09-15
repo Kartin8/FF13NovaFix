@@ -16,6 +16,7 @@
 #include "d3d9/redundant_state_filter.h"
 #include "d3d9/swap_chain_proxy.h"
 #include "display/display_profile.h"
+#include "display/aspect_runtime.h"
 #include "display/scissor_transform.h"
 #include "display/texture_policy.h"
 #include "display/ui_render_policy.h"
@@ -112,6 +113,25 @@ std::atomic_uint64_t g_deviceGeneration{1};
 std::atomic_uint g_loggedScissors{0};
 std::atomic_uint g_loggedUiBuffers{0};
 std::atomic_uint g_loggedScreenQuads{0};
+
+void PublishDeviceExtent(
+    IDirect3DDevice9* device,
+    const D3DPRESENT_PARAMETERS* parameters) {
+    UINT width = parameters ? parameters->BackBufferWidth : 0u;
+    UINT height = parameters ? parameters->BackBufferHeight : 0u;
+    IDirect3DSurface9* backBuffer = nullptr;
+    if (device && SUCCEEDED(device->GetBackBuffer(
+            0, 0, D3DBACKBUFFER_TYPE_MONO, &backBuffer)) &&
+        backBuffer) {
+        D3DSURFACE_DESC description{};
+        if (SUCCEEDED(backBuffer->GetDesc(&description))) {
+            width = description.Width;
+            height = description.Height;
+        }
+        backBuffer->Release();
+    }
+    display::PublishBackBufferExtent(width, height);
+}
 
 bool ClaimLimitedLog(std::atomic_uint& counter, unsigned limit) {
     unsigned current = counter.load(std::memory_order_relaxed);
@@ -220,6 +240,7 @@ void DeactivateDevice(IDirect3DDevice9* device) {
 void UpdateDevicePresentation(IDirect3DDevice9* device,
                               const D3DPRESENT_PARAMETERS* parameters) {
     if (!device || !parameters) return;
+    PublishDeviceExtent(device, parameters);
     AcquireSRWLockExclusive(&g_lock);
     for (auto& record : g_devices) {
         if (record.device == device) {
@@ -307,7 +328,10 @@ HRESULT STDMETHODCALLTYPE SetScissorRectHook(IDirect3DDevice9* self, const RECT*
         hookTiming, "hook.d3d9.set-scissor-rect-total", 64u);
     const auto& functions = FindDeviceVtable(self);
     if (!functions.setScissorRect) return D3DERR_INVALIDCALL;
-    if (!rectangle || !game::scissor_fix::ShouldTransformCurrentThread()) {
+    if (!rectangle) {
+        return functions.setScissorRect(self, rectangle);
+    }
+    if (!game::scissor_fix::ShouldTransformCurrentThread()) {
         return functions.setScissorRect(self, rectangle);
     }
     const DeviceRecord record = FindDevice(self);
@@ -719,6 +743,7 @@ void RegisterDeviceInternal(
     if (extended) InstallExtendedDeviceHooks(table, record);
     ReleaseSRWLockExclusive(&g_lock);
     g_deviceGeneration.fetch_add(1u, std::memory_order_release);
+    PublishDeviceExtent(device, parameters);
 }
 
 } // namespace
