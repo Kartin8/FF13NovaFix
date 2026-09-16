@@ -75,6 +75,9 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
                 names::kOverlayGamepadHotkey,
                 static_cast<unsigned>(
                     OverlayGamepadHotkey::Both)));
+        loaded.centerOverlayOnOpen = ini::ReadBoolean(
+            g_configPath, L"Input", L"CenterOverlayOnOpen",
+            loaded.centerOverlayOnOpen);
     }
     Normalize(loaded);
     g_active = loaded;
@@ -133,7 +136,7 @@ bool SaveInput(const InputSettings& requested) {
     InputSettings value = requested;
     Normalize(value);
     if (g_configPath.empty()) return false;
-    const std::array<ini::Entry, 6> entries{{
+    const std::array<ini::Entry, 7> entries{{
         {L"PromptMode", ini::FormatChoice(
              static_cast<unsigned>(value.promptMode), names::kPromptMode)},
         {L"ControllerVibration",
@@ -149,6 +152,8 @@ bool SaveInput(const InputSettings& requested) {
         {L"OverlayGamepadHotkey", ini::FormatChoice(
              static_cast<unsigned>(value.overlayGamepadHotkey),
              names::kOverlayGamepadHotkey)},
+        {L"CenterOverlayOnOpen",
+         ini::FormatBoolean(value.centerOverlayOnOpen)},
     }};
     const bool saved = ini::WriteValues(g_configPath, L"Input", entries);
     if (saved) {

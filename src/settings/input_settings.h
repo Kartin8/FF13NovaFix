@@ -36,6 +36,7 @@ struct InputSettings {
     OverlayHotkey alternateOverlayHotkey{OverlayHotkey::Grave};
     OverlayGamepadHotkey overlayGamepadHotkey{
         OverlayGamepadHotkey::Both};
+    bool centerOverlayOnOpen{false};
 };
 
 InputSettings ActiveInput();

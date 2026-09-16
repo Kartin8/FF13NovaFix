@@ -4,6 +4,7 @@
 #include "display/monitor_layout.h"
 #include "game/core/game_profile.h"
 #include "settings/graphics_settings.h"
+#include "settings/input_settings.h"
 #include "overlay/panels/settings_widgets.h"
 
 #include "imgui.h"
@@ -164,6 +165,14 @@ void DrawGraphicsSettings() {
                 "##UseNovaFixProfile",
                 &g_settings.overrideLauncherGraphics)) {
             SaveSettings();
+        }
+        settings::InputSettings input = settings::StoredInput();
+        widgets::SettingRow(
+            "Center menu on open",
+            "Returns the NovaFix window to the center whenever it opens");
+        if (ImGui::Checkbox(
+                "##CenterOverlayOnOpen", &input.centerOverlayOnOpen)) {
+            settings::SaveInput(input);
         }
         widgets::EndSettingsTable();
     }

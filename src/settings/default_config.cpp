@@ -199,6 +199,8 @@ void AppendInput(std::string& output) {
         output, "OverlayGamepadHotkey",
         static_cast<unsigned>(value.overlayGamepadHotkey),
         names::kOverlayGamepadHotkey);
+    AppendBoolean(output, "CenterOverlayOnOpen",
+                  value.centerOverlayOnOpen);
     AppendLine(output);
 }
 

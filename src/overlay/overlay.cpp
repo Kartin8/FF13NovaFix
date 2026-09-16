@@ -56,6 +56,7 @@ struct HotkeyState {
 HotkeyState g_primaryHotkey;
 HotkeyState g_alternateHotkey;
 std::atomic_bool g_navigationFocusRequested{false};
+std::atomic_bool g_centerPanelRequested{false};
 bool g_mainPanelVisible = false;
 float g_uiScale = 1.0f;
 std::mutex g_textNotificationMutex;
@@ -160,6 +161,9 @@ void ToggleIfRequested() {
     g_open.store(open, std::memory_order_relaxed);
     notifications::sounds::PlayMenuTransition(open);
     g_mainPanelVisible = open;
+    if (open && settings.centerOverlayOnOpen) {
+        g_centerPanelRequested.store(true, std::memory_order_release);
+    }
     g_navigationFocusRequested.store(
         open && gamepadPressed, std::memory_order_release);
     if (!open) input::overlay_gamepad::HoldUntilReleased();
@@ -258,9 +262,18 @@ void DrawPanelWindow() {
     const ImVec2 minimum{std::min(680.0f * g_uiScale, display.x),
                          std::min(360.0f * g_uiScale, display.y)};
     ImGui::SetNextWindowSize(initial, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(std::max(0.0f, (display.x - initial.x) * 0.5f),
-                                  std::max(0.0f, (display.y - initial.y) * 0.5f)),
-                            ImGuiCond_FirstUseEver);
+    const bool centerRequested = g_centerPanelRequested.exchange(
+        false, std::memory_order_acq_rel);
+    if (centerRequested) {
+        ImGui::SetNextWindowPos(
+            ImVec2(display.x * 0.5f, display.y * 0.5f),
+            ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    } else {
+        ImGui::SetNextWindowPos(
+            ImVec2(std::max(0.0f, (display.x - initial.x) * 0.5f),
+                   std::max(0.0f, (display.y - initial.y) * 0.5f)),
+            ImGuiCond_FirstUseEver);
+    }
     ImGui::SetNextWindowSizeConstraints(
         minimum,
         ImVec2(std::max(minimum.x, display.x), std::max(minimum.y, display.y)));

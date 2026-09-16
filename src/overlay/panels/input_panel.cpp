@@ -40,13 +40,19 @@ constexpr settings::OverlayGamepadHotkey kOverlayGamepadHotkeys[]{
 };
 
 void EnsureSettings() {
-    if (g_ready) return;
+    if (g_ready) {
+        g_settings.centerOverlayOnOpen =
+            settings::StoredInput().centerOverlayOnOpen;
+        return;
+    }
     g_settings = settings::StoredInput();
     g_ready = true;
 }
 
 void SaveSettings() {
     g_editPending = false;
+    g_settings.centerOverlayOnOpen =
+        settings::StoredInput().centerOverlayOnOpen;
     if (settings::SaveInput(g_settings)) return;
     g_settings = settings::StoredInput();
     settings::PreviewInput(g_settings);
