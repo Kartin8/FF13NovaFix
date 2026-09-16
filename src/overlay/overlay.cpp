@@ -176,9 +176,15 @@ void ToggleIfRequested() {
 void ClampCurrentWindow() {
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 size = ImGui::GetWindowSize();
-    size.x = std::min(size.x, std::max(1.0f, io.DisplaySize.x));
-    size.y = std::min(size.y, std::max(1.0f, io.DisplaySize.y));
-    ImGui::SetWindowSize(size, ImGuiCond_Always);
+    if (!ImGui::IsWindowCollapsed()) {
+        const ImVec2 constrained{
+            std::min(size.x, std::max(1.0f, io.DisplaySize.x)),
+            std::min(size.y, std::max(1.0f, io.DisplaySize.y))};
+        if (constrained.x != size.x || constrained.y != size.y) {
+            ImGui::SetWindowSize(constrained, ImGuiCond_Always);
+            size = constrained;
+        }
+    }
 
     const ImVec2 position = ImGui::GetWindowPos();
     const ImVec2 clamped{
@@ -281,10 +287,10 @@ void DrawPanelWindow() {
     const bool requestNavigationFocus =
         g_navigationFocusRequested.exchange(false, std::memory_order_acq_rel);
     if (requestNavigationFocus) ImGui::SetNextWindowFocus();
-    ImGui::Begin("NovaFix###NovaFixMain", &g_mainPanelVisible,
-                 ImGuiWindowFlags_NoCollapse);
+    const bool drawContents = ImGui::Begin(
+        "NovaFix###NovaFixMain", &g_mainPanelVisible);
     if (requestNavigationFocus) ImGui::SetNavCursorVisible(true);
-    ui::DrawSettingsWindow(g_window);
+    if (drawContents) ui::DrawSettingsWindow(g_window);
     ClampCurrentWindow();
     ImGui::End();
     if (!g_mainPanelVisible) {
