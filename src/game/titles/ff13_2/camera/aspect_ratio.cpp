@@ -14,7 +14,6 @@
 #include <intrin.h>
 
 #include <array>
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -29,10 +28,8 @@ constexpr std::uint32_t kSceneCameraDefaultsRva = 0x0026B970u;
 constexpr std::uint32_t kSceneCameraPerspectiveRva = 0x00269CD0u;
 constexpr std::uint32_t kVfxCameraProjectionUpdateRva = 0x006E8C20u;
 constexpr std::uint32_t kGuiMatrixUploadRva = 0x0039E570u;
-// DRAW_MENU task 68 brackets the complete White HUD/menu submission.
 constexpr std::uint32_t kGuiTaskDrawRva =
     0x00C09720u - 0x00400000u;
-// Both retained and explicit White clip paths converge on this submitter.
 constexpr std::uint32_t kGuiScissorSubmitRva =
     0x00C1AD60u - 0x00400000u;
 constexpr std::uint32_t kFinalCompositeModeRva = 0x00809FDBu;
@@ -52,7 +49,6 @@ constexpr std::array<std::byte, 13> kFieldCameraLoadPrefix{
     std::byte{0x14}, std::byte{0x53}, std::byte{0x56}, std::byte{0x8B},
     std::byte{0xF1},
 };
-// Stop before the relocated absolute operand of `movss xmm1, [address]`.
 constexpr std::array<std::byte, 9> kSceneCameraDefaultsPrefix{
     std::byte{0x83}, std::byte{0xEC}, std::byte{0x10}, std::byte{0x0F},
     std::byte{0x57}, std::byte{0xC0}, std::byte{0xF3}, std::byte{0x0F},
@@ -138,13 +134,6 @@ GuiScissorSubmitFn g_originalGuiScissorSubmit{};
 MoviePresentFn g_originalMoviePresent{};
 PrimitiveSubmitFn g_nativePrimitiveSubmit{};
 const std::byte* g_imageBase{};
-std::atomic_bool g_loggedFieldCorrection{};
-std::atomic_bool g_loggedSceneCameraCorrection{};
-std::atomic_bool g_loggedVfxCameraCorrection{};
-std::atomic_bool g_loggedGuiCorrection{};
-std::atomic_bool g_loggedNaviMapBypass{};
-std::atomic_bool g_loggedGuiScissorCorrection{};
-std::atomic_bool g_loggedMovieFit{};
 thread_local unsigned g_guiTaskDrawDepth{};
 
 struct MovieDimensions {
@@ -171,10 +160,6 @@ void __fastcall FieldCameraLoadHook(void* fieldCamera, void*) {
 
     auto* bytes = static_cast<std::byte*>(fieldCamera);
     *reinterpret_cast<float*>(bytes + kFieldAspectOffset) = aspect.value;
-    if (!g_loggedFieldCorrection.exchange(true, std::memory_order_acq_rel)) {
-        Log("XIII-2 field camera aspect corrected: %ux%u (%.6f)",
-            aspect.width, aspect.height, aspect.value);
-    }
 }
 
 void* __fastcall SceneCameraDefaultsHook(void* cameraState, void*) {
@@ -200,11 +185,6 @@ void __fastcall SceneCameraPerspectiveHook(
     const display::AspectRatio aspect = display::CurrentAspectRatio();
     if (aspect.valid && aspect.correctionRequired) {
         aspectValue = aspect.value;
-        if (!g_loggedSceneCameraCorrection.exchange(
-                true, std::memory_order_acq_rel)) {
-            LogInfo("XIII-2 SceneCamera aspect corrected: %ux%u (%.6f)",
-                    aspect.width, aspect.height, aspect.value);
-        }
     }
     original(sceneCamera, fov, nearPlane, farPlane, aspectValue, tracked);
 }
@@ -219,11 +199,6 @@ int __fastcall VfxCameraProjectionUpdateHook(void* camera, void*) {
         auto* bytes = static_cast<std::byte*>(camera);
         *reinterpret_cast<float*>(bytes + kVfxCameraAspectOffset) =
             aspect.value;
-        if (!g_loggedVfxCameraCorrection.exchange(
-                true, std::memory_order_acq_rel)) {
-            LogInfo("XIII-2 VFX camera aspect corrected: %ux%u (%.6f)",
-                    aspect.width, aspect.height, aspect.value);
-        }
     }
     return original(camera);
 }
@@ -243,10 +218,6 @@ int __fastcall GuiMatrixUploadHook(
     if (g_imageBase &&
         returnAddress ==
             g_imageBase + kGuiNaviMapSpecialUploadReturnRva) {
-        if (!g_loggedNaviMapBypass.exchange(
-                true, std::memory_order_acq_rel)) {
-            Log("XIII-2 GUI safe area retained the native GuiNaviMap projection");
-        }
         return original(shaderState, matrix);
     }
 
@@ -257,11 +228,6 @@ int __fastcall GuiMatrixUploadHook(
     }
     for (const std::size_t index : {1u, 5u, 9u, 13u}) {
         corrected[index] *= aspect.safeScaleY;
-    }
-    if (!g_loggedGuiCorrection.exchange(true, std::memory_order_acq_rel)) {
-        Log("XIII-2 GUI safe area active: scale=%.6f,%.6f target=%ux%u",
-            aspect.safeScaleX, aspect.safeScaleY,
-            aspect.width, aspect.height);
     }
     return original(shaderState, corrected.data());
 }
@@ -299,10 +265,6 @@ int __cdecl GuiScissorSubmitHook(
              static_cast<std::int32_t>(bottom)},
             aspect);
 
-    if (!g_loggedGuiScissorCorrection.exchange(
-            true, std::memory_order_acq_rel)) {
-        Log("XIII-2 GUI scissors mapped to the centred 16:9 safe area");
-    }
     return original(
         corrected.left, corrected.top,
         corrected.right - corrected.left,
@@ -347,11 +309,6 @@ void __cdecl MoviePrimitiveSubmitHook(
     for (MovieVertex& vertex : corrected) {
         vertex.x *= fit.x;
         vertex.y *= fit.y;
-    }
-    if (!g_loggedMovieFit.exchange(true, std::memory_order_acq_rel)) {
-        Log("XIII-2 prerender aspect fit active: movie=%ux%u target=%ux%u scale=%.6f,%.6f",
-            g_movieDimensions.width, g_movieDimensions.height,
-            target.width, target.height, fit.x, fit.y);
     }
     native(primitiveType, enabled, format, stride, corrected.data());
 }
@@ -547,7 +504,6 @@ BOOL CALLBACK InitializeOnce(PINIT_ONCE, PVOID, PVOID*) {
 
     g_moviePrimitiveCallPatch = std::move(moviePatch);
     g_finalCompositePatch = std::move(compositePatch);
-    Log("XIII-2 arbitrary aspect ratio support installed for scene/VFX cameras, GUI, prerenders, and final presentation");
     return TRUE;
 }
 

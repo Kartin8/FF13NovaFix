@@ -19,8 +19,6 @@
 namespace novafix::game::xiii2_main_menu_frame {
 namespace {
 
-// GuiMainMenu::draw. The two retained children of product+0xB4 are the
-// shared header (resource 1429) and footer (resource 1435).
 constexpr std::uint32_t kMainMenuDrawRva = 0x004424C0u;
 constexpr std::array<std::byte, 17> kMainMenuDrawPrefix{
     std::byte{0x81}, std::byte{0xEC}, std::byte{0x90}, std::byte{0x00},
@@ -30,8 +28,6 @@ constexpr std::array<std::byte, 17> kMainMenuDrawPrefix{
     std::byte{0xE9},
 };
 
-// GuiList::update. Correcting the list at its own update point covers nested
-// menu products without searching the retained UI tree from draw.
 constexpr std::uint32_t kGuiListUpdateRva = 0x004D3E90u;
 constexpr std::array<std::byte, 20> kGuiListUpdatePrefix{
     std::byte{0x55}, std::byte{0x8B}, std::byte{0xEC}, std::byte{0x83},
@@ -41,8 +37,6 @@ constexpr std::array<std::byte, 20> kGuiListUpdatePrefix{
     std::byte{0x89}, std::byte{0x4C}, std::byte{0x24}, std::byte{0x10},
 };
 
-// GuiInventory constructor. Its exact retained nodes let us anchor the right
-// party card and scrollbar once, without a broad right-side node heuristic.
 constexpr std::uint32_t kInventoryConstructRva = 0x004387F0u;
 constexpr std::array<std::byte, 19> kInventoryConstructPrefix{
     std::byte{0x55}, std::byte{0x8B}, std::byte{0xEC}, std::byte{0x83},
@@ -139,11 +133,6 @@ std::array<ListBaseline, kMaximumTrackedLists> g_listBaselines{};
 std::size_t g_nextListBaseline{};
 const std::byte* g_imageBase{};
 std::atomic<DWORD> g_lastMainMenuDrawTick{};
-std::atomic_bool g_loggedFrameCorrection{};
-std::atomic_bool g_loggedPartyCorrection{};
-std::atomic_bool g_loggedListCorrection{};
-std::atomic_bool g_loggedParkingCorrection{};
-std::atomic_bool g_loggedInventoryCorrection{};
 
 template <typename T>
 bool ReadAt(const std::byte* object, std::size_t offset, T& value) {
@@ -318,8 +307,6 @@ bool ApplyRoot(const RootBaseline& root, float safeScaleX,
         return false;
     }
 
-    // Only the first child is the panel backing. Cancel the root expansion
-    // for retained labels and icons so the common chrome does not stretch.
     for (std::size_t index = 0; index < root.childCount; ++index) {
         const ChildBaseline& child = root.children[index];
         const bool backing = index == 0u;
@@ -425,10 +412,6 @@ void ApplySubmenuParking(void* mainMenu, float overscan) {
         g_parkingBaseline = {};
         return;
     }
-    if (overscan > 0.0f &&
-        !g_loggedParkingCorrection.exchange(true, std::memory_order_acq_rel)) {
-        Log("XIII-2 inactive main-menu panel parked beyond the wide viewport");
-    }
 }
 
 void ApplyMainTopMenuPartyAnchor(void* mainMenu, float verticalOverscan) {
@@ -459,11 +442,6 @@ void ApplyMainTopMenuPartyAnchor(void* mainMenu, float verticalOverscan) {
         (changed && !MarkTransformDirty(partyRoot))) {
         return;
     }
-    if (verticalOverscan > 0.0f &&
-        !g_loggedPartyCorrection.exchange(
-            true, std::memory_order_acq_rel)) {
-        Log("XIII-2 main-menu party group anchored to the tall viewport bottom");
-    }
 }
 
 void ApplyWideFrame(void* product) {
@@ -491,11 +469,6 @@ void ApplyWideFrame(void* product) {
     ApplySubmenuParking(product, WideOverscan());
     ApplyMainTopMenuPartyAnchor(product, verticalOverscan);
 
-    if ((safeScaleX < 1.0f || verticalOverscan > 0.0f) &&
-        !g_loggedFrameCorrection.exchange(true, std::memory_order_acq_rel)) {
-        Log("XIII-2 shared main-menu header/footer extended to %ux%u; child content remains in the 16:9 safe area",
-            aspect.width, aspect.height);
-    }
 }
 
 float ApproximateWorldX(std::byte* node) {
@@ -573,10 +546,6 @@ void ApplyListLayout(std::byte* list) {
     }
     baseline->appliedOverscan = overscan;
 
-    if (overscan > 0.0f &&
-        !g_loggedListCorrection.exchange(true, std::memory_order_acq_rel)) {
-        Log("XIII-2 nested main-menu lists anchored to the wide viewport edge");
-    }
 }
 
 void ShiftTrustedNode(std::byte* node, float offset) {
@@ -607,10 +576,6 @@ void ApplyInventoryRightAnchors(void* product) {
 
     ShiftTrustedNode(
         TrustedField<std::byte*>(bytes, kInventoryRightEdgeOffset), overscan);
-    if (!g_loggedInventoryCorrection.exchange(
-            true, std::memory_order_acq_rel)) {
-        Log("XIII-2 inventory right-side controls anchored to the wide viewport edge");
-    }
 }
 
 int __fastcall MainMenuDrawHook(void* product, void*, int layer) {
@@ -682,7 +647,6 @@ BOOL CALLBACK InitializeOnce(PINIT_ONCE, PVOID, PVOID*) {
         return TRUE;
     }
 
-    Log("XIII-2 main-menu wide layout installed");
     return TRUE;
 }
 

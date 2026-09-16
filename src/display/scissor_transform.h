@@ -16,8 +16,6 @@ struct ScissorRect {
 ScissorRect ScaleScissorRect(ScissorRect source, std::uint32_t targetWidth,
                              std::uint32_t targetHeight);
 
-// Maps a rectangle that is already expressed in physical target pixels into
-// the centered 16:9 safe area used by the aspect-corrected White projection.
 ScissorRect FitScissorRectToSafeArea(
     ScissorRect source, const AspectRatio& aspect);
 
