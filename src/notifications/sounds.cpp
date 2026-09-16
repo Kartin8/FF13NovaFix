@@ -77,9 +77,7 @@ void OnSuccessfulPresent() {
             expected, true, std::memory_order_acq_rel)) {
         return;
     }
-    if (PlayEmbedded(kStartupSoundResource, true)) {
-        Log("Startup sound played");
-    }
+    (void)PlayEmbedded(kStartupSoundResource, true);
 }
 
 void PlayMenuTransition(bool opening) {

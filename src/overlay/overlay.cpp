@@ -295,7 +295,9 @@ void DrawPanelWindow() {
     ImGui::End();
     if (!g_mainPanelVisible) {
         ui::FinishSettingsEdits();
-        g_open.store(false, std::memory_order_release);
+        if (g_open.exchange(false, std::memory_order_acq_rel)) {
+            notifications::sounds::PlayMenuTransition(false);
+        }
     }
 }
 
@@ -313,7 +315,9 @@ void DrawOverlay(bool drawPanel, bool drawCounter,
     if (drawPanel && !anyPopupOpen && !ImGui::IsAnyItemActive() &&
         ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) {
         ui::FinishSettingsEdits();
-        g_open.store(false, std::memory_order_release);
+        if (g_open.exchange(false, std::memory_order_acq_rel)) {
+            notifications::sounds::PlayMenuTransition(false);
+        }
         g_mainPanelVisible = false;
         g_navigationFocusRequested.store(false, std::memory_order_release);
         input::overlay_gamepad::HoldUntilReleased();
