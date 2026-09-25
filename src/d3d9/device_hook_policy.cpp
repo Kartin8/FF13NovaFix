@@ -20,6 +20,7 @@ DeviceHookPolicy ResolveDeviceHookPolicy(const DeviceHookPolicyInput& input) {
                              redundantStates;
     result.createPixelShader = shaders ||
                                input.runtimeShaderObservationSupported;
+    result.createVertexShader = input.minimapVertexCorrectionSupported;
     result.setPixelShader = input.runtimeShaderObservationSupported ||
                             redundantStates;
     result.setPixelShaderConstantF =
@@ -27,8 +28,10 @@ DeviceHookPolicy ResolveDeviceHookPolicy(const DeviceHookPolicyInput& input) {
     result.setRenderState = redundantStates;
     result.setTexture = redundantStates;
     result.setTextureStageState = redundantStates;
-    result.setVertexShaderConstantF = redundantStates;
-    result.setVertexShader = redundantStates;
+    result.setVertexShaderConstantF =
+        redundantStates || input.minimapVertexCorrectionSupported;
+    result.setVertexShader =
+        redundantStates || input.minimapVertexCorrectionSupported;
     result.setStreamSource = redundantStates;
     result.stateBlocks = redundantStates;
     result.redundantStateFilter = redundantStates;

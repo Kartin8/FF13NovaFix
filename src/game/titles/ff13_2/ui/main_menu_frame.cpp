@@ -111,6 +111,13 @@ struct ParkingBaseline {
     bool valid{};
 };
 
+struct PartyAnchorValidation {
+    void* mainMenu{};
+    std::byte* topMenu{};
+    std::byte* topMenuRoot{};
+    std::byte* partyRoot{};
+};
+
 struct ListBaseline {
     std::byte* node{};
     std::byte* parent{};
@@ -129,6 +136,7 @@ GuiListUpdateFn g_originalListUpdate{};
 InventoryConstructFn g_originalInventoryConstruct{};
 FrameBaseline g_frameBaseline{};
 ParkingBaseline g_parkingBaseline{};
+PartyAnchorValidation g_partyAnchorValidation{};
 std::array<ListBaseline, kMaximumTrackedLists> g_listBaselines{};
 std::size_t g_nextListBaseline{};
 const std::byte* g_imageBase{};
@@ -196,6 +204,23 @@ bool WriteFloatIfChanged(std::byte* node, std::size_t offset,
     if (!WriteAt(node, offset, value)) return false;
     changed = true;
     return true;
+}
+
+// These nodes were validated when FrameBaseline was captured and belong to the menu being drawn.
+// Don't VirtualQuery every transform field again on every frame.
+bool WriteTrustedFloatIfChanged(std::byte* node, std::size_t offset,
+                                float value, bool& changed) {
+    if (!node || !std::isfinite(value)) return false;
+    float& current = TrustedField<float>(node, offset);
+    if (!std::isfinite(current)) return false;
+    if (std::fabs(current - value) <= kTransformEpsilon) return true;
+    current = value;
+    changed = true;
+    return true;
+}
+
+void MarkTrustedTransformDirty(std::byte* node) {
+    TrustedField<std::uint32_t>(node, kDirtyFlagsOffset) |= kTransformDirty;
 }
 
 bool SetNodePositionX(std::byte* node, float positionX) {
@@ -275,16 +300,22 @@ bool FrameBaselineMatches(void* product) {
 
     std::byte* container{};
     std::byte* root{};
-    if (!ReadAt(static_cast<std::byte*>(product),
-                kProductChromeContainerOffset, container) || !container ||
-        !ReadAt(container, kFirstChildOffset, root)) {
-        return false;
-    }
+    // The baseline was validated when captured. While this product is being drawn,
+    // just verify the expected node layout instead of VirtualQuerying every pointer again.
+    container = TrustedField<std::byte*>(
+        static_cast<std::byte*>(product), kProductChromeContainerOffset);
+    if (!container) return false;
+    root = TrustedField<std::byte*>(container, kFirstChildOffset);
     for (const RootBaseline& baseline : g_frameBaseline.roots) {
-        if (!root || root != baseline.node ||
-            !ReadAt(root, kNextSiblingOffset, root)) {
-            return false;
+        if (!root || root != baseline.node) return false;
+        std::byte* child = TrustedField<std::byte*>(
+            baseline.node, kFirstChildOffset);
+        for (std::size_t index = 0u; index < baseline.childCount; ++index) {
+            if (child != baseline.children[index].node) return false;
+            child = TrustedField<std::byte*>(child, kNextSiblingOffset);
         }
+        if (child) return false;
+        root = TrustedField<std::byte*>(root, kNextSiblingOffset);
     }
     return true;
 }
@@ -296,16 +327,16 @@ bool ApplyRoot(const RootBaseline& root, float safeScaleX,
         kAuthoredCenterX * ((1.0f / safeScaleX) - 1.0f);
     bool rootChanged{};
     if (!root.node ||
-        !WriteFloatIfChanged(root.node, kScaleXOffset,
-                             rootScale, rootChanged) ||
-        !WriteFloatIfChanged(root.node, kPositionXOffset,
-                             rootPosition, rootChanged) ||
-        !WriteFloatIfChanged(root.node, kPositionYOffset,
-                             root.positionY + verticalOffset,
-                             rootChanged) ||
-        (rootChanged && !MarkTransformDirty(root.node))) {
+        !WriteTrustedFloatIfChanged(root.node, kScaleXOffset,
+                                    rootScale, rootChanged) ||
+        !WriteTrustedFloatIfChanged(root.node, kPositionXOffset,
+                                    rootPosition, rootChanged) ||
+        !WriteTrustedFloatIfChanged(root.node, kPositionYOffset,
+                                    root.positionY + verticalOffset,
+                                    rootChanged)) {
         return false;
     }
+    if (rootChanged) MarkTrustedTransformDirty(root.node);
 
     for (std::size_t index = 0; index < root.childCount; ++index) {
         const ChildBaseline& child = root.children[index];
@@ -317,13 +348,13 @@ bool ApplyRoot(const RootBaseline& root, float safeScaleX,
             : kAuthoredCenterX +
                 (child.positionX - kAuthoredCenterX) * safeScaleX;
         bool childChanged{};
-        if (!WriteFloatIfChanged(child.node, kScaleXOffset,
-                                 childScale, childChanged) ||
-            !WriteFloatIfChanged(child.node, kPositionXOffset,
-                                 childPosition, childChanged) ||
-            (childChanged && !MarkTransformDirty(child.node))) {
+        if (!WriteTrustedFloatIfChanged(child.node, kScaleXOffset,
+                                        childScale, childChanged) ||
+            !WriteTrustedFloatIfChanged(child.node, kPositionXOffset,
+                                        childPosition, childChanged)) {
             return false;
         }
+        if (childChanged) MarkTrustedTransformDirty(child.node);
     }
     return true;
 }
@@ -421,32 +452,62 @@ void ApplyMainTopMenuPartyAnchor(void* mainMenu, float verticalOverscan) {
     std::byte* partyRoot{};
     const void* partyVtable{};
     std::byte* partyParent{};
-    if (!mainMenu || !g_imageBase ||
-        !ReadAt(static_cast<std::byte*>(mainMenu),
-                kProductActiveSubproductOffset, topMenu) || !topMenu ||
-        !ReadAt(topMenu, 0u, topMenuVtable) ||
-        topMenuVtable != g_imageBase + kMainTopMenuVtableRva ||
-        !ReadAt(topMenu, kProductRootOffset, topMenuRoot) || !topMenuRoot ||
-        !ReadAt(topMenu, kMainTopMenuPartyRootOffset, partyRoot) ||
-        !partyRoot ||
-        !ReadAt(partyRoot, 0u, partyVtable) ||
-        partyVtable != g_imageBase + kMainTopMenuPartyVtableRva ||
-        !ReadAt(partyRoot, kParentOffset, partyParent) ||
-        partyParent != topMenuRoot) {
+    if (!mainMenu || !g_imageBase) return;
+    topMenu = TrustedField<std::byte*>(
+        static_cast<std::byte*>(mainMenu), kProductActiveSubproductOffset);
+    if (!topMenu) {
+        g_partyAnchorValidation = {};
+        return;
+    }
+    topMenuVtable = TrustedField<void*>(topMenu, 0u);
+    if (topMenuVtable != g_imageBase + kMainTopMenuVtableRva) {
+        g_partyAnchorValidation = {};
         return;
     }
 
-    bool changed{};
-    if (!WriteFloatIfChanged(partyRoot, kPositionYOffset,
-                             verticalOverscan, changed) ||
-        (changed && !MarkTransformDirty(partyRoot))) {
+    topMenuRoot = TrustedField<std::byte*>(
+        topMenu, kProductRootOffset);
+    partyRoot = TrustedField<std::byte*>(
+        topMenu, kMainTopMenuPartyRootOffset);
+    if (!topMenuRoot || !partyRoot) {
+        g_partyAnchorValidation = {};
         return;
     }
+    const bool previouslyValidated =
+        g_partyAnchorValidation.mainMenu == mainMenu &&
+        g_partyAnchorValidation.topMenu == topMenu &&
+        g_partyAnchorValidation.topMenuRoot == topMenuRoot &&
+        g_partyAnchorValidation.partyRoot == partyRoot;
+    if (!previouslyValidated &&
+        !patch::memory::IsWritable(
+            partyRoot, kDirtyFlagsOffset + sizeof(std::uint32_t))) {
+        g_partyAnchorValidation = {};
+        return;
+    }
+    partyVtable = TrustedField<void*>(partyRoot, 0u);
+    partyParent = TrustedField<std::byte*>(partyRoot, kParentOffset);
+    if (partyVtable != g_imageBase + kMainTopMenuPartyVtableRva ||
+        partyParent != topMenuRoot) {
+        g_partyAnchorValidation = {};
+        return;
+    }
+    if (!previouslyValidated) {
+        g_partyAnchorValidation = {
+            mainMenu, topMenu, topMenuRoot, partyRoot};
+    }
+
+    bool changed{};
+    if (!WriteTrustedFloatIfChanged(partyRoot, kPositionYOffset,
+                                    verticalOverscan, changed)) {
+        return;
+    }
+    if (changed) MarkTrustedTransformDirty(partyRoot);
 }
 
 void ApplyWideFrame(void* product) {
     if (!FrameBaselineMatches(product)) {
         g_frameBaseline = {};
+        g_partyAnchorValidation = {};
         if (!CaptureFrameBaseline(product)) return;
     }
 
@@ -463,6 +524,7 @@ void ApplyWideFrame(void* product) {
         if (!ApplyRoot(g_frameBaseline.roots[index], safeScaleX,
                        verticalOffset)) {
             g_frameBaseline = {};
+            g_partyAnchorValidation = {};
             return;
         }
     }

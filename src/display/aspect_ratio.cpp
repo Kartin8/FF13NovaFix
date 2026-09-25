@@ -23,27 +23,31 @@ AspectRatio ResolveAspectRatio(std::uint32_t width, std::uint32_t height) {
     return result;
 }
 
-AspectFitScale ResolveAspectFitScale(
-    std::uint32_t contentWidth, std::uint32_t contentHeight,
+bool IsSixteenTenAspect(std::uint32_t width, std::uint32_t height) {
+    return width != 0u && height != 0u &&
+        static_cast<std::uint64_t>(width) * 10u ==
+            static_cast<std::uint64_t>(height) * 16u;
+}
+
+AspectFitScale ResolveWideMovieScale(
     std::uint32_t targetWidth, std::uint32_t targetHeight) {
     AspectFitScale result{};
-    if (contentWidth == 0u || contentHeight == 0u ||
-        targetWidth == 0u || targetHeight == 0u) {
+    const AspectRatio target = ResolveAspectRatio(targetWidth, targetHeight);
+    if (!target.valid) return result;
+
+    result.valid = true;
+    // At exactly 16:10, preserve the authored 16:9 proportions by cropping
+    // the sides rather than stretching the movie across the taller target.
+    if (IsSixteenTenAspect(targetWidth, targetHeight)) {
+        result.x = kAuthoredAspectRatio / target.value;
+        result.correctionRequired = true;
         return result;
     }
 
-    result.valid = true;
-    const std::uint64_t targetProduct =
-        static_cast<std::uint64_t>(targetWidth) * contentHeight;
-    const std::uint64_t contentProduct =
-        static_cast<std::uint64_t>(contentWidth) * targetHeight;
-    result.correctionRequired = targetProduct != contentProduct;
-    if (targetProduct > contentProduct) {
-        result.x = static_cast<float>(contentProduct) /
-                   static_cast<float>(targetProduct);
-    } else if (targetProduct < contentProduct) {
-        result.y = static_cast<float>(targetProduct) /
-                   static_cast<float>(contentProduct);
+    // Keep the existing presentation at every other aspect ratio.
+    if (target.safeScaleX < 1.0f) {
+        result.x = target.safeScaleX;
+        result.correctionRequired = true;
     }
     return result;
 }

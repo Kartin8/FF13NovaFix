@@ -1,4 +1,5 @@
 #include "game/titles/ff13/title_adapter.h"
+#include "game/titles/ff13/camera/aspect_ratio.h"
 
 #include "game/shared/controllers/controller_hotplug.h"
 #include "game/shared/controllers/controller_vibration.h"
@@ -9,7 +10,7 @@
 #include "game/titles/ff13/timing/cutscene_terminal_frame.h"
 #include "game/titles/ff13/timing/frame_pacing_runtime.h"
 #include "game/titles/ff13/titan_route_correction.h"
-#include "game/titles/ff13/ui/prompt_mode_manager.h"
+#include "game/titles/ff13/ui/prompts/prompt_mode_manager.h"
 
 #include <windows.h>
 
@@ -32,7 +33,8 @@ constexpr CapabilityMask kCapabilities =
     CapabilityBit(Capability::ScreenSpaceAlignment) |
     CapabilityBit(Capability::TextureFiltering) |
     CapabilityBit(Capability::MotionBlendCorrection) |
-    CapabilityBit(Capability::TitanRouteCorrection);
+    CapabilityBit(Capability::TitanRouteCorrection) |
+    CapabilityBit(Capability::ArbitraryAspectRatio);
 
 constexpr std::array<BuildDescriptor, 2> kBuilds{{
     {
@@ -53,7 +55,10 @@ constexpr std::array<BuildDescriptor, 2> kBuilds{{
     },
 }};
 
-constexpr std::array<FeatureDescriptor, 9> kFeatures{{
+constexpr std::array<FeatureDescriptor, 10> kFeatures{{
+    {"arbitrary-aspect-ratio", Capability::ArbitraryAspectRatio,
+     &ff13_aspect_ratio::Initialize, nullptr, nullptr,
+     &ff13_aspect_ratio::IsActive},
     {"frame-pacing", Capability::FramePacing,
      &ff13_frame_pacing_runtime::Initialize,
      &ff13_frame_pacing_runtime::Pump, nullptr},

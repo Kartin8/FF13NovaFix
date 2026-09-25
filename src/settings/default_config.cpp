@@ -30,6 +30,14 @@ void AppendValue(std::string& output, std::string_view key, unsigned value) {
     output.append("\r\n");
 }
 
+void AppendValue(std::string& output, std::string_view key, float value) {
+    char formatted[32]{};
+    _snprintf_s(formatted, sizeof(formatted), _TRUNCATE, "%.2f", value);
+    output.append(key);
+    output.push_back('=');
+    AppendLine(output, formatted);
+}
+
 void AppendValue(std::string& output, std::string_view key,
                  const wchar_t* value) {
     output.append(key);
@@ -96,6 +104,15 @@ void AppendGraphics(std::string& output, game::Title title) {
     if (title == game::Title::FinalFantasyXIII) {
         AppendBoolean(output, "HighResolutionScissorFix",
                       value.highResolutionScissorFix);
+    }
+    if (title == game::Title::FinalFantasyXIII ||
+        title == game::Title::FinalFantasyXIII2) {
+        AppendBoolean(output, "RoundMinimap", value.roundMinimap);
+        AppendValue(output, "MinimapScale", value.minimapScale);
+        AppendValue(output, "MinimapHorizontalOffset",
+                    value.minimapHorizontalOffset);
+        AppendValue(output, "MinimapVerticalOffset",
+                    value.minimapVerticalOffset);
     }
     AppendBoolean(output, "OptimizeUiVertexBuffer",
                   value.optimizeUiVertexBuffer);

@@ -24,8 +24,8 @@ struct AspectFitScale {
 };
 
 AspectRatio ResolveAspectRatio(std::uint32_t width, std::uint32_t height);
-AspectFitScale ResolveAspectFitScale(
-    std::uint32_t contentWidth, std::uint32_t contentHeight,
+bool IsSixteenTenAspect(std::uint32_t width, std::uint32_t height);
+AspectFitScale ResolveWideMovieScale(
     std::uint32_t targetWidth, std::uint32_t targetHeight);
 
 } // namespace novafix::display

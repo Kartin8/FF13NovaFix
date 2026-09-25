@@ -19,4 +19,7 @@ struct ShaderBytecodeIdentity {
 ShaderBytecodeIdentity InspectShaderBytecode(
     const std::uint32_t* bytecode, std::size_t maximumDwords = 16384u);
 
+ShaderBytecodeIdentity InspectVertexShaderBytecode(
+    const std::uint32_t* bytecode, std::size_t maximumDwords = 16384u);
+
 } // namespace novafix::d3d9

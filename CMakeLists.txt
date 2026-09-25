@@ -48,6 +48,7 @@ set(NOVAFIX_SOURCES
     src/d3d9/device_state_hooks.cpp
     src/d3d9/factory_hooks.cpp
     src/d3d9/mip_lod_bias_controller.cpp
+    src/d3d9/minimap_shader_variant.cpp
     src/d3d9/presentation_setup.cpp
     src/d3d9/redundant_state_filter.cpp
     src/d3d9/shader_bytecode_identity.cpp
@@ -95,12 +96,24 @@ set(NOVAFIX_SOURCES
     src/game/steam/steam_save_sync_state.cpp
     src/game/steam/steam_shutdown_guard.cpp
     src/game/titles/ff13/title_adapter.cpp
+    src/game/titles/ff13/camera/aspect_ratio.cpp
+    src/game/titles/ff13/rendering/composition_aspect.cpp
+    src/game/titles/ff13/rendering/movie_aspect.cpp
+    src/game/titles/ff13/ui/backdrop/backdrop_capture.cpp
+    src/game/titles/ff13/ui/battle_header_layout.cpp
+    src/game/titles/ff13/ui/gestalt_layout.cpp
+    src/game/titles/ff13/ui/gui_aspect.cpp
+    src/game/titles/ff13/ui/map_alert_vfx.cpp
+    src/game/titles/ff13/ui/menu/menu_aspect.cpp
+    src/game/titles/ff13/ui/menu/menu_chrome.cpp
+    src/game/titles/ff13/ui/menu/menu_layout.cpp
+    src/game/titles/ff13/ui/menu/menu_list_clip.cpp
     src/game/titles/ff13/animation/motion_blend_correction.cpp
     src/game/titles/ff13/timing/cutscene_terminal_frame.cpp
     src/game/titles/ff13/timing/frame_pacing_runtime.cpp
     src/game/titles/ff13/rendering/nautilus_crash_fix.cpp
-    src/game/titles/ff13/ui/prompt_layout_registry.cpp
-    src/game/titles/ff13/ui/prompt_mode_manager.cpp
+    src/game/titles/ff13/ui/prompts/prompt_layout_registry.cpp
+    src/game/titles/ff13/ui/prompts/prompt_mode_manager.cpp
     src/game/titles/ff13/titan_route_correction.cpp
     src/game/titles/ff13/ui/addon_notification.cpp
     src/game/titles/ff13_2/title_adapter.cpp
@@ -108,6 +121,10 @@ set(NOVAFIX_SOURCES
     src/game/titles/ff13_2/animation/root_motion.cpp
     src/game/titles/ff13_2/camera/chocobo_race.cpp
     src/game/titles/ff13_2/camera/aspect_ratio.cpp
+    src/game/titles/ff13_2/ui/gui_aspect.cpp
+    src/game/titles/ff13_2/rendering/movie_aspect.cpp
+    src/game/titles/ff13_2/rendering/internal_resolution.cpp
+    src/game/titles/ff13_2/ui/map_alert_vfx.cpp
     src/game/titles/ff13_2/camera/scene_a_bahamut.cpp
     src/game/titles/ff13_2/rendering/hud_sampling.cpp
     src/game/titles/ff13_2/rendering/shadows/alias_transaction.cpp

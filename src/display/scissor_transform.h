@@ -19,4 +19,7 @@ ScissorRect ScaleScissorRect(ScissorRect source, std::uint32_t targetWidth,
 ScissorRect FitScissorRectToSafeArea(
     ScissorRect source, const AspectRatio& aspect);
 
+ScissorRect FitAuthoredScissorRectToViewport(
+    ScissorRect source, const AspectRatio& aspect);
+
 } // namespace novafix::display

@@ -1,4 +1,4 @@
-#include "game/titles/ff13/ui/prompt_layout_registry.h"
+#include "game/titles/ff13/ui/prompts/prompt_layout_registry.h"
 
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
@@ -21,8 +21,8 @@ namespace novafix::game::ff13_prompt_layout_registry {
 namespace {
 
 constexpr std::uint32_t kTextLayoutRebuildRva = 0x0063B920u;
-// Exact extent of sub_A3B920. Its A80090 call is the embedded GuiLabel path;
-// all other native A80090 callers own standalone RenderText objects
+// sub_A3B920 is 0x126 bytes long. Its A80090 call handles the embedded GuiLabel;
+// other A80090 callers operate on standalone RenderText objects.
 constexpr std::size_t kTextLayoutRebuildSize = 0x126u;
 constexpr std::uint32_t kRenderTextRebuildRva = 0x00680090u;
 constexpr std::uint32_t kButtonControlClassifierRva = 0x006929D0u;
@@ -303,9 +303,9 @@ RefreshResult Refresh() {
     NOVAFIX_PROFILE_NAMED_SCOPE(
         refreshTiming, "hook.ff13.prompt-registry-refresh");
 
-    // A3B920 -> A80090 identifies the layout owner as RenderText - 0xE0
-    // Refresh registered owners directly: bottom guides are outside the GUI tree
-    // Standalone labels replay A80090; destructor tracking excludes dead objects
+    // A3B920 -> A80090 gives the owner as RenderText - 0xE0.
+    // Refresh captured owners directly because bottom guides sit outside the GUI tree.
+    // Standalone labels call A80090 again; destructor tracking filters dead objects.
     AcquireSRWLockShared(&g_capturedPromptLock);
     g_replayingCapturedPrompt = true;
     for (std::size_t index = 0u;

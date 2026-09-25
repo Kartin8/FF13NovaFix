@@ -30,6 +30,7 @@ std::atomic_bool g_launcherIntegration{true};
 std::atomic<game::Title> g_title{game::Title::Unknown};
 std::atomic_uint64_t g_activeGeneration{1};
 std::atomic_bool g_correctScreenSpaceAlignment{true};
+std::atomic_bool g_roundMinimap{false};
 
 void ApplyLiveFields(GraphicsSettings& target,
                      const GraphicsSettings& source) {
@@ -37,6 +38,11 @@ void ApplyLiveFields(GraphicsSettings& target,
     target.correctScreenSpaceAlignment = source.correctScreenSpaceAlignment;
     g_correctScreenSpaceAlignment.store(
         source.correctScreenSpaceAlignment, std::memory_order_release);
+    target.roundMinimap = source.roundMinimap;
+    g_roundMinimap.store(source.roundMinimap, std::memory_order_release);
+    target.minimapScale = source.minimapScale;
+    target.minimapHorizontalOffset = source.minimapHorizontalOffset;
+    target.minimapVerticalOffset = source.minimapVerticalOffset;
     target.anisotropicFiltering = source.anisotropicFiltering;
     target.xiii2MipLodBias = source.xiii2MipLodBias;
 }
@@ -113,6 +119,18 @@ void Normalize(GraphicsSettings& value) {
         value.xiii2MipLodBias = 0.0f;
     }
     value.xiii2MipLodBias = std::clamp(value.xiii2MipLodBias, -1.0f, 1.0f);
+    if (!std::isfinite(value.minimapScale)) value.minimapScale = 1.0f;
+    value.minimapScale = std::clamp(value.minimapScale, 0.0f, 1.5f);
+    if (!std::isfinite(value.minimapVerticalOffset)) {
+        value.minimapVerticalOffset = 0.0f;
+    }
+    if (!std::isfinite(value.minimapHorizontalOffset)) {
+        value.minimapHorizontalOffset = 0.0f;
+    }
+    value.minimapHorizontalOffset =
+        std::clamp(value.minimapHorizontalOffset, -16384.0f, 16384.0f);
+    value.minimapVerticalOffset =
+        std::clamp(value.minimapVerticalOffset, -16384.0f, 16384.0f);
 }
 
 BOOL CALLBACK LoadSettings(PINIT_ONCE, PVOID, PVOID*) {
@@ -144,6 +162,18 @@ BOOL CALLBACK LoadSettings(PINIT_ONCE, PVOID, PVOID*) {
         loaded.correctScreenSpaceAlignment = ini::ReadBoolean(
             g_configPath, L"Graphics", L"CorrectScreenSpaceAlignment",
             loaded.correctScreenSpaceAlignment);
+        loaded.roundMinimap = ini::ReadBoolean(
+            g_configPath, L"Graphics", L"RoundMinimap",
+            loaded.roundMinimap);
+        loaded.minimapScale = ini::ReadFloat(
+            g_configPath, L"Graphics", L"MinimapScale",
+            loaded.minimapScale);
+        loaded.minimapHorizontalOffset = ini::ReadFloat(
+            g_configPath, L"Graphics", L"MinimapHorizontalOffset",
+            loaded.minimapHorizontalOffset);
+        loaded.minimapVerticalOffset = ini::ReadFloat(
+            g_configPath, L"Graphics", L"MinimapVerticalOffset",
+            loaded.minimapVerticalOffset);
         loaded.anisotropicFiltering = ReadUnsigned(
             L"AnisotropicFiltering", loaded.anisotropicFiltering);
         loaded.xiii2MipLodBias = ini::ReadFloat(
@@ -161,14 +191,7 @@ BOOL CALLBACK LoadSettings(PINIT_ONCE, PVOID, PVOID*) {
     g_stored = loaded;
     g_correctScreenSpaceAlignment.store(
         loaded.correctScreenSpaceAlignment, std::memory_order_release);
-    Log("Graphics settings loaded: override=%d mode=%u monitor=%u size=%ux%u shadow=%u MSAA=%u scissor-fix=%d ui-vb=%d screen-align=%d AF=%u xiii2-mip-lod=%+.2f xiii2-shaders=%d xiii2-shadow-pipeline=%d",
-        loaded.overrideLauncherGraphics, static_cast<unsigned>(loaded.displayMode), loaded.monitorIndex,
-        loaded.width, loaded.height,
-        loaded.shadowResolution, loaded.msaaSamples, loaded.highResolutionScissorFix,
-        loaded.optimizeUiVertexBuffer, loaded.correctScreenSpaceAlignment,
-        loaded.anisotropicFiltering, loaded.xiii2MipLodBias,
-        loaded.xiii2ShaderCorrections,
-        loaded.xiii2OptimizeShadowPipeline);
+    g_roundMinimap.store(loaded.roundMinimap, std::memory_order_release);
     return TRUE;
 }
 
@@ -229,6 +252,14 @@ bool SaveConfig(const GraphicsSettings& value) {
     if (ff13 || unknown) {
         AddSetting(entries, L"HighResolutionScissorFix",
                    value.highResolutionScissorFix);
+    }
+    if (ff13 || ff13_2 || unknown) {
+        AddSetting(entries, L"RoundMinimap", value.roundMinimap);
+        AddSetting(entries, L"MinimapScale", value.minimapScale);
+        AddSetting(entries, L"MinimapHorizontalOffset",
+                   value.minimapHorizontalOffset);
+        AddSetting(entries, L"MinimapVerticalOffset",
+                   value.minimapVerticalOffset);
     }
     if (ff13_2 || unknown) {
         AddSetting(entries, L"XIII2MipLodBias", value.xiii2MipLodBias);
@@ -320,6 +351,11 @@ void PreviewGraphics(const GraphicsSettings& requested) {
 
 bool CorrectScreenSpaceAlignmentEnabled() {
     return g_correctScreenSpaceAlignment.load(std::memory_order_acquire);
+}
+
+bool RoundMinimapEnabled() {
+    EnsureLoaded();
+    return g_roundMinimap.load(std::memory_order_acquire);
 }
 
 bool Save(const GraphicsSettings& requested) {

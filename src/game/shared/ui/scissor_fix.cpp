@@ -3,6 +3,7 @@
 #include "diagnostics/log.h"
 #include "game/core/game_profile.h"
 #include "game/core/image_view.h"
+#include "game/titles/ff13/camera/aspect_ratio.h"
 #include "patch/transaction.h"
 #include "settings/graphics_settings.h"
 
@@ -61,6 +62,7 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID, PVOID*) {
     g_transaction = std::make_unique<patch::Transaction>(
         "normalize-game-scissor-coordinates", writable);
     for (const PatchSite& site : kPatchSites) {
+        if (site.rva == 0x572B26u && ff13_aspect_ratio::IsActive()) continue;
         const auto siteRange = image->At(site.rva, site.expected.size());
         if (!siteRange) {
             g_transaction.reset();
@@ -99,7 +101,8 @@ void Initialize() {
 void Pump() {
     if (!g_supported || !g_transaction) return;
 
-    const bool desired = settings::Active().highResolutionScissorFix;
+    const bool desired = settings::Active().highResolutionScissorFix ||
+        ff13_aspect_ratio::IsActive();
     if (desired && !g_transaction->IsApplied()) {
         const patch::ApplyStatus status = g_transaction->Apply();
         if (status == patch::ApplyStatus::Applied ||
@@ -113,7 +116,6 @@ void Pump() {
     } else if (!desired && g_transaction->IsApplied()) {
         if (g_transaction->Revert()) {
             g_active.store(false, std::memory_order_release);
-            Log("High-resolution UI clipping fix disabled: game code restored");
         }
     }
 }

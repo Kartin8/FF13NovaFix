@@ -83,4 +83,27 @@ ScissorRect FitScissorRectToSafeArea(
     };
 }
 
+ScissorRect FitAuthoredScissorRectToViewport(
+    ScissorRect source, const AspectRatio& aspect) {
+    constexpr auto maximum = std::numeric_limits<std::int32_t>::max();
+    if (!aspect.valid || aspect.width > maximum || aspect.height > maximum ||
+        source.right < source.left || source.bottom < source.top) return source;
+    const double scale = std::min(
+        static_cast<double>(aspect.width) / kReferenceWidth,
+        static_cast<double>(aspect.height) / kReferenceHeight);
+    const double offsetX = (aspect.width - kReferenceWidth * scale) * 0.5;
+    const double offsetY = (aspect.height - kReferenceHeight * scale) * 0.5;
+    const auto edge = [scale](std::int32_t value, double offset,
+                              std::uint32_t extent, bool trailing) {
+        return std::clamp(QuantizeSafeAreaEdge(value * scale + offset, trailing),
+                          0, static_cast<std::int32_t>(extent));
+    };
+    return {
+        edge(source.left, offsetX, aspect.width, false),
+        edge(source.top, offsetY, aspect.height, false),
+        edge(source.right, offsetX, aspect.width, true),
+        edge(source.bottom, offsetY, aspect.height, true),
+    };
+}
+
 } // namespace novafix::display

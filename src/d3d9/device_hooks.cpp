@@ -22,7 +22,9 @@
 #include "display/ui_render_policy.h"
 #include "game/core/game_profile.h"
 #include "game/shared/timing/cutscene_terminal_frame.h"
-#include "game/titles/ff13/ui/prompt_mode_manager.h"
+#include "game/titles/ff13/ui/prompts/prompt_mode_manager.h"
+#include "game/titles/ff13/ui/menu/menu_aspect.h"
+#include "game/titles/ff13/camera/aspect_ratio.h"
 #include "game/shared/ui/scissor_fix.h"
 #include "overlay/overlay.h"
 #include "settings/graphics_settings.h"
@@ -334,15 +336,45 @@ HRESULT STDMETHODCALLTYPE SetScissorRectHook(IDirect3DDevice9* self, const RECT*
     if (!game::scissor_fix::ShouldTransformCurrentThread()) {
         return functions.setScissorRect(self, rectangle);
     }
+    const bool xiiiAspect = game::ff13_aspect_ratio::IsActive();
+    if (xiiiAspect && !game::ff13_aspect_ratio::IsDrawingGui()) {
+        return functions.setScissorRect(self, rectangle);
+    }
     const DeviceRecord record = FindDevice(self);
-    if (record.backBufferWidth < 640 || record.backBufferHeight < 480) {
+    UINT targetWidth = record.backBufferWidth;
+    UINT targetHeight = record.backBufferHeight;
+    if (game::CurrentProfile().title == game::Title::FinalFantasyXIII) {
+        // GUI passes can use a viewport smaller than the presentation buffer.
+        D3DVIEWPORT9 viewport{};
+        if (SUCCEEDED(self->GetViewport(&viewport)) &&
+            viewport.X == 0u && viewport.Y == 0u &&
+            viewport.Width >= 640u && viewport.Height >= 480u) {
+            targetWidth = viewport.Width;
+            targetHeight = viewport.Height;
+        }
+    }
+    if (targetWidth < 640u || targetHeight < 480u) {
         return functions.setScissorRect(self, rectangle);
     }
 
     const display::ScissorRect source{
         rectangle->left, rectangle->top, rectangle->right, rectangle->bottom};
-    const display::ScissorRect scaled = display::ScaleScissorRect(
-        source, record.backBufferWidth, record.backBufferHeight);
+    display::ScissorRect menuListRect{};
+    if (xiiiAspect && targetWidth == record.backBufferWidth &&
+        targetHeight == record.backBufferHeight &&
+        game::ff13_ui::menu_aspect::ActiveGuiListScissorRect(
+            source, menuListRect)) {
+        const RECT output{
+            menuListRect.left, menuListRect.top,
+            menuListRect.right, menuListRect.bottom};
+        return functions.setScissorRect(self, &output);
+    }
+    const display::ScissorRect scaled = xiiiAspect
+        ? display::FitAuthoredScissorRectToViewport(
+            source, display::ResolveAspectRatio(
+                targetWidth, targetHeight))
+        : display::ScaleScissorRect(
+            source, targetWidth, targetHeight);
     const RECT output{scaled.left, scaled.top, scaled.right, scaled.bottom};
     if (ClaimLimitedLog(g_loggedScissors, 6u)) {
         Log("Scissor scaled: %ld,%ld-%ld,%ld -> %ld,%ld-%ld,%ld target=%ux%u",
@@ -557,6 +589,8 @@ DeviceHookPolicy ConfigureDeviceHookPolicy() {
         compatibilityAllowsChanges &&
             game::CurrentProfile().title == game::Title::FinalFantasyXIII2,
         performance.xiii2OptimizeStateSubmission,
+        compatibilityAllowsChanges &&
+            game::CurrentProfile().title == game::Title::FinalFantasyXIII2,
     });
     redundant_state_filter::Configure(hookPolicy.redundantStateFilter);
     mip_lod_bias::Configure(

@@ -19,14 +19,17 @@ std::uint64_t HashBytes(const void* data, std::size_t size) {
 
 } // namespace
 
-ShaderBytecodeIdentity InspectShaderBytecode(
-    const std::uint32_t* bytecode, std::size_t maximumDwords) {
+ShaderBytecodeIdentity InspectBytecode(
+    const std::uint32_t* bytecode, std::size_t maximumDwords,
+    bool expectedPixelShader) {
     if (!bytecode || maximumDwords < 2u) return {};
 
     const std::uint32_t version = bytecode[0];
     const bool pixelShader = (version & 0xFFFF0000u) == 0xFFFF0000u;
     const unsigned major = D3DSHADER_VERSION_MAJOR(version);
-    if (!pixelShader || major < 2u || major > 3u) return {};
+    const bool vertexShader = (version & 0xFFFF0000u) == 0xFFFE0000u;
+    if ((expectedPixelShader ? !pixelShader : !vertexShader) ||
+        major < 2u || major > 3u) return {};
 
     std::size_t cursor = 1u;
     while (cursor < maximumDwords) {
@@ -50,6 +53,16 @@ ShaderBytecodeIdentity InspectShaderBytecode(
         cursor += operands + 1u;
     }
     return {};
+}
+
+ShaderBytecodeIdentity InspectShaderBytecode(
+    const std::uint32_t* bytecode, std::size_t maximumDwords) {
+    return InspectBytecode(bytecode, maximumDwords, true);
+}
+
+ShaderBytecodeIdentity InspectVertexShaderBytecode(
+    const std::uint32_t* bytecode, std::size_t maximumDwords) {
+    return InspectBytecode(bytecode, maximumDwords, false);
 }
 
 } // namespace novafix::d3d9

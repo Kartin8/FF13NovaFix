@@ -2,7 +2,9 @@
 
 #include "diagnostics/log.h"
 #include "d3d9/device_hook_policy.h"
+#include "d3d9/minimap_shader_variant.h"
 #include "d3d9/redundant_state_filter.h"
+#include "game/titles/ff13_2/camera/aspect_ratio.h"
 #include "patch/vtable_hook.h"
 
 #include <windows.h>
@@ -27,6 +29,8 @@ using SetVertexShaderConstantFFn = HRESULT (STDMETHODCALLTYPE*)(
     IDirect3DDevice9*, UINT, const float*, UINT);
 using SetVertexShaderFn = HRESULT (STDMETHODCALLTYPE*)(
     IDirect3DDevice9*, IDirect3DVertexShader9*);
+using CreateVertexShaderFn = HRESULT (STDMETHODCALLTYPE*)(
+    IDirect3DDevice9*, const DWORD*, IDirect3DVertexShader9**);
 using SetStreamSourceFn = HRESULT (STDMETHODCALLTYPE*)(
     IDirect3DDevice9*, UINT, IDirect3DVertexBuffer9*, UINT, UINT);
 using CreateStateBlockFn = HRESULT (STDMETHODCALLTYPE*)(
@@ -42,6 +46,7 @@ enum class Claim : std::uint8_t {
     TextureStageState,
     VertexShaderConstantF,
     VertexShader,
+    CreateVertexShader,
     StreamSource,
     CreateStateBlock,
     BeginStateBlock,
@@ -58,6 +63,7 @@ struct VtableRecord {
     SetTextureStageStateFn setTextureStageState{};
     SetVertexShaderConstantFFn setVertexShaderConstantF{};
     SetVertexShaderFn setVertexShader{};
+    CreateVertexShaderFn createVertexShader{};
     SetStreamSourceFn setStreamSource{};
     CreateStateBlockFn createStateBlock{};
     BeginStateBlockFn beginStateBlock{};
@@ -76,6 +82,8 @@ SRWLOCK g_vtableLock = SRWLOCK_INIT;
 std::deque<StateBlockVtableRecord> g_stateBlockVtables;
 SRWLOCK g_stateBlockLock = SRWLOCK_INIT;
 std::atomic_bool g_stateBlockHookFailureLogged{false};
+std::atomic_bool g_minimapShaderFailureLogged{false};
+thread_local bool g_minimapVariantBound{};
 
 patch::registry::ClaimId* ClaimSlot(VtableRecord& record, Claim claim) {
     return &record.claims[static_cast<std::size_t>(claim)];
@@ -213,29 +221,84 @@ HRESULT STDMETHODCALLTYPE SetTextureStageStateHook(
 HRESULT STDMETHODCALLTYPE SetVertexShaderConstantFHook(
     IDirect3DDevice9* self, UINT startRegister, const float* values,
     UINT vectorCount) {
-    if (redundant_state_filter::VertexShaderConstantF(
-            self, startRegister, values, vectorCount)) return D3D_OK;
     const VtableRecord* functions = FindVtable(self);
     if (!functions || !functions->setVertexShaderConstantF) {
         return D3DERR_INVALIDCALL;
     }
-    const HRESULT result = functions->setVertexShaderConstantF(
+    const bool redundant = redundant_state_filter::VertexShaderConstantF(
         self, startRegister, values, vectorCount);
-    if (SUCCEEDED(result)) {
-        redundant_state_filter::CommitVertexShaderConstantF(
+    const HRESULT result = redundant ? D3D_OK :
+        functions->setVertexShaderConstantF(
             self, startRegister, values, vectorCount);
+    if (SUCCEEDED(result)) {
+        if (!redundant) {
+            redundant_state_filter::CommitVertexShaderConstantF(
+                self, startRegister, values, vectorCount);
+        }
+        if (g_minimapVariantBound && startRegister <= 3u &&
+            startRegister + vectorCount >= 4u) {
+            const auto clip =
+                game::xiii2_aspect_ratio::CurrentMinimapClipCorrection();
+            if (clip.active) {
+                const HRESULT correction = functions->setVertexShaderConstantF(
+                    self, 254u, clip.constants.data(), 2u);
+                if (SUCCEEDED(correction)) {
+                    redundant_state_filter::CommitVertexShaderConstantF(
+                        self, 254u, clip.constants.data(), 2u);
+                }
+            }
+        }
+    }
+    return result;
+}
+
+HRESULT STDMETHODCALLTYPE CreateVertexShaderHook(
+    IDirect3DDevice9* self, const DWORD* function,
+    IDirect3DVertexShader9** output) {
+    const VtableRecord* functions = FindVtable(self);
+    if (!functions || !functions->createVertexShader) {
+        return D3DERR_INVALIDCALL;
+    }
+    const HRESULT result = functions->createVertexShader(self, function, output);
+    if (FAILED(result) || !output || !*output ||
+        !minimap_shader_variant::MatchesNativeVertexShader(function)) {
+        return result;
+    }
+    IDirect3DVertexShader9* corrected{};
+    const HRESULT variantResult = functions->createVertexShader(
+        self, minimap_shader_variant::CorrectedBytecode(), &corrected);
+    if (SUCCEEDED(variantResult) && corrected) {
+        minimap_shader_variant::Record(*output, corrected);
+    } else if (!g_minimapShaderFailureLogged.exchange(true)) {
+        LogWarning("XIII-2 minimap clip vertex shader creation failed: result=0x%08lX",
+                   static_cast<unsigned long>(variantResult));
     }
     return result;
 }
 
 HRESULT STDMETHODCALLTYPE SetVertexShaderHook(
     IDirect3DDevice9* self, IDirect3DVertexShader9* shader) {
-    if (redundant_state_filter::VertexShader(self, shader)) return D3D_OK;
     const VtableRecord* functions = FindVtable(self);
     if (!functions || !functions->setVertexShader) return D3DERR_INVALIDCALL;
-    const HRESULT result = functions->setVertexShader(self, shader);
+    const auto clip = game::xiii2_aspect_ratio::CurrentMinimapClipCorrection();
+    IDirect3DVertexShader9* const resolved = clip.active
+        ? minimap_shader_variant::Resolve(shader) : shader;
+    g_minimapVariantBound = clip.active && resolved != shader;
+    const bool redundant = redundant_state_filter::VertexShader(self, resolved);
+    const HRESULT result = redundant ? D3D_OK :
+        functions->setVertexShader(self, resolved);
     if (SUCCEEDED(result)) {
-        redundant_state_filter::CommitVertexShader(self, shader);
+        if (!redundant) {
+            redundant_state_filter::CommitVertexShader(self, resolved);
+        }
+        if (g_minimapVariantBound && functions->setVertexShaderConstantF) {
+            const HRESULT correction = functions->setVertexShaderConstantF(
+                self, 254u, clip.constants.data(), 2u);
+            if (SUCCEEDED(correction)) {
+                redundant_state_filter::CommitVertexShaderConstantF(
+                    self, 254u, clip.constants.data(), 2u);
+            }
+        }
     }
     return result;
 }
@@ -336,6 +399,12 @@ void Install(void** table, const DeviceHookPolicy& policy) {
         reinterpret_cast<void*>(&SetVertexShaderConstantFHook),
         record->setVertexShaderConstantF,
         ClaimSlot(*record, Claim::VertexShaderConstantF));
+    (void)InstallSlot(
+        policy.createVertexShader,
+        "d3d9-device:create-vertex-shader", table, 91u,
+        reinterpret_cast<void*>(&CreateVertexShaderHook),
+        record->createVertexShader,
+        ClaimSlot(*record, Claim::CreateVertexShader));
     (void)InstallSlot(
         policy.setVertexShader,
         "d3d9-device:set-vertex-shader", table, 92u,

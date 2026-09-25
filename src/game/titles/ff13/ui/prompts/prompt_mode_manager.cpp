@@ -1,6 +1,7 @@
-#include "game/titles/ff13/ui/prompt_mode_manager.h"
-#include "game/titles/ff13/ui/prompt_layout_registry.h"
+#include "game/titles/ff13/ui/prompts/prompt_mode_manager.h"
+#include "game/titles/ff13/ui/prompts/prompt_layout_registry.h"
 
+#include "compat/addons/native_notifications.h"
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
 #include "game/core/game_profile.h"
@@ -107,12 +108,6 @@ NativeMode DesiredModeNow() {
     return input::ResolvePromptMode(
         settings::ActiveInput().promptMode,
         input::LatestActivity());
-}
-
-const char* ModeName(NativeMode mode) {
-    if (mode == NativeMode::Keyboard) return "keyboard";
-    if (mode == NativeMode::Controller) return "controller";
-    return "unknown";
 }
 
 void CacheButtonAtlas(void* atlas) {
@@ -336,8 +331,8 @@ int __cdecl PromptWrapperHook(char forceKeyboard) {
 void ApplyPendingMode() {
     if (!g_available.load(std::memory_order_acquire)) return;
 
-    // Preserve the pristine pad atlas in system memory before Reset loses it,
-    // even when no prompt switch is pending
+    // Save the original controller atlas in system memory before Reset can destroy it,
+    // even if no prompt switch is pending.
     if (AtlasReady()) {
         EnsureControllerBackupSnapshot();
     }
@@ -400,15 +395,8 @@ void ApplyPendingMode() {
     }
     ReleaseSRWLockExclusive(&g_atlasMutationLock);
 
-    const ff13_prompt_layout_registry::RefreshResult refreshed =
-        ff13_prompt_layout_registry::Refresh();
+    (void)ff13_prompt_layout_registry::Refresh();
     g_atlasRecoveryPending.store(false, std::memory_order_release);
-
-    Log("XIII button prompts switched: mode=%s source=%s preference=%u reset-recovery=%u registry-layout=%zu registry-direct=%zu",
-        ModeName(desired), input::InputSourceName(activity),
-        static_cast<unsigned>(preference),
-        recoveryPending ? 1u : 0u,
-        refreshed.layoutOwned, refreshed.direct);
 }
 
 int __fastcall InputTickHook(void* manager, void*, const std::int32_t* timing) {
@@ -424,6 +412,7 @@ int __fastcall InputTickHook(void* manager, void*, const std::int32_t* timing) {
         hook_profiler::Scope originalTiming(originalPoint);
         result = original(manager, timing);
     }
+    compat::native_notifications::Pump();
     ApplyPendingMode();
     return result;
 }
@@ -620,13 +609,10 @@ void BeforeDeviceReset() {
     // Restore the controller atlas from the system-memory copy instead
     g_controllerBackupRestoreFailureLogged.store(
         false, std::memory_order_release);
-    const bool snapshotReady = EnsureControllerBackupSnapshot();
+    (void)EnsureControllerBackupSnapshot();
     g_atlasRecoveryPending.store(true, std::memory_order_release);
     g_controllerBackupRefreshPending.store(
         true, std::memory_order_release);
-    Log("XIII controller-atlas backup marked stale before D3D9 Reset: restore=queued snapshot-ready=%u live-atlas=%p",
-        snapshotReady ? 1u : 0u,
-        g_cachedButtonAtlas.load(std::memory_order_acquire));
 }
 
 } // namespace novafix::game::ff13_prompt_mode

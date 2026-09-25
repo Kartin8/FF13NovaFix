@@ -13,6 +13,7 @@ struct DeviceHookPolicyInput {
     bool runtimeShaderObservationSupported{};
     bool redundantStateOptimizationSupported{};
     bool optimizeStateSubmission{};
+    bool minimapVertexCorrectionSupported{};
 };
 
 struct DeviceHookPolicy {
@@ -21,6 +22,7 @@ struct DeviceHookPolicy {
     bool setScissorRect{};
     bool setSamplerState{};
     bool createPixelShader{};
+    bool createVertexShader{};
     bool setPixelShader{};
     bool setPixelShaderConstantF{};
     bool setRenderState{};

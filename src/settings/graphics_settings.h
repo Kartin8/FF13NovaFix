@@ -25,6 +25,10 @@ struct GraphicsSettings {
     bool highResolutionScissorFix{true};
     bool optimizeUiVertexBuffer{true};
     bool correctScreenSpaceAlignment{true};
+    bool roundMinimap{false};
+    float minimapScale{1.0f};
+    float minimapHorizontalOffset{0.0f};
+    float minimapVerticalOffset{0.0f};
     unsigned anisotropicFiltering{16};
     float xiii2MipLodBias{0.0f};
     bool xiii2ShaderCorrections{true};
@@ -37,6 +41,7 @@ GraphicsSettings Active();
 GraphicsSettings Stored();
 void PreviewGraphics(const GraphicsSettings& value);
 bool CorrectScreenSpaceAlignmentEnabled();
+bool RoundMinimapEnabled();
 bool OverridesLauncherGraphics();
 bool Save(const GraphicsSettings& value);
 
