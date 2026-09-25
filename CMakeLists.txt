@@ -35,8 +35,13 @@ set(NOVAFIX_SOURCES
     src/compat/addons/addon_profile_storage.cpp
     src/compat/addons/addon_storage.cpp
     src/compat/addons/native_notifications.cpp
+    src/compat/addons/native_notification_text.cpp
+    src/compat/addons/plugin_abi_contract.cpp
     src/compat/addons/plugin_controls.cpp
     src/compat/addons/plugin_descriptor.cpp
+    src/compat/addons/plugin_descriptor_controls.cpp
+    src/compat/addons/plugin_descriptor_reader.cpp
+    src/compat/addons/plugin_services.cpp
     src/compat/compatibility.cpp
     src/compat/modules/foreign_fix.cpp
     src/compat/modules/loaded_modules.cpp

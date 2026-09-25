@@ -180,6 +180,9 @@ int __fastcall CompanyLogoHook(void* companyLogo, void*) {
 }
 
 int __fastcall MessageCloseHook(void* product, void*, int reason) {
+    if (compat::native_notifications::ShouldSuppressClose(product)) {
+        return 0;
+    }
     {
         std::scoped_lock lock(g_mutex);
         if (g_pending.opened && g_pending.product == product) {

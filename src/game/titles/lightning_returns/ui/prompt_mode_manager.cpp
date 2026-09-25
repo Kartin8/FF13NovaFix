@@ -175,9 +175,23 @@ DWORD WINAPI XInputGetStateHook(DWORD userIndex, XINPUT_STATE* state) {
         input::NotifyActivity(input::InputSource::Controller);
     }
     if (result == ERROR_SUCCESS && state &&
+        compat::native_notifications::BlocksGameplayInput()) {
+        state->Gamepad = {};
+    } else if (result == ERROR_SUCCESS && state &&
         (overlay::CapturesControllerInput() ||
          lr_text_editor::CapturesInput())) {
         state->Gamepad = {};
+    } else if (result == ERROR_SUCCESS && state &&
+               compat::native_notifications::BlocksGameplayMovement()) {
+        state->Gamepad.wButtons &= static_cast<WORD>(
+            ~(XINPUT_GAMEPAD_DPAD_UP | XINPUT_GAMEPAD_DPAD_DOWN |
+              XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT));
+        state->Gamepad.bLeftTrigger = 0u;
+        state->Gamepad.bRightTrigger = 0u;
+        state->Gamepad.sThumbLX = 0;
+        state->Gamepad.sThumbLY = 0;
+        state->Gamepad.sThumbRX = 0;
+        state->Gamepad.sThumbRY = 0;
     }
     return result;
 }

@@ -1,8 +1,11 @@
 #include "game/shared/ui/startup_module_notification.h"
 
+#include "compat/addons/native_notifications.h"
+#include "compat/addons/native_notification_text.h"
 #include "diagnostics/log.h"
 #include "game/core/image_view.h"
 #include "input/xinput_backend.h"
+#include "settings/game_settings.h"
 #include "settings/performance_settings.h"
 
 #include <windows.h>
@@ -81,7 +84,7 @@ struct LocalizedHeading {
     UINT codePage;
 };
 
-constexpr std::array<LocalizedHeading, 9> kHeadings{{
+constexpr std::array<LocalizedHeading, 8> kHeadings{{
     {L"japanese", L"\x6B63\x5E38\x306B\x8AAD\x307F\x8FBC\x307E\x308C\x305F\x30A2\x30C9\x30AA\x30F3:", 932u},
     {L"english", L"Successfully loaded add-ons:", 1252u},
     {L"italian", L"Componenti aggiuntivi caricati correttamente:", 1252u},
@@ -89,9 +92,97 @@ constexpr std::array<LocalizedHeading, 9> kHeadings{{
     {L"french", L"Extensions chargees avec succes :", 1252u},
     {L"spanish", L"Complementos cargados correctamente:", 1252u},
     {L"koreana", L"\xC131\xACF5\xC801\xC73C\xB85C \xBD88\xB7EC\xC628 \xC560\xB4DC\xC628:", 949u},
-    {L"schinese", L"\x6210\x529F\x8F7D\x5165\x7684\x9644\x52A0\x5143\x4EF6\xFF1A", 936u},
     {L"tchinese", L"\x6210\x529F\x8F09\x5165\x7684\x9644\x52A0\x5143\x4EF6\xFF1A", 950u},
 }};
+
+const LocalizedHeading& HeadingFor(unsigned appId) {
+    std::wstring language = SteamLanguage(appId);
+    if (!settings::OverridesGameLanguage()) {
+        for (const auto& candidate : kHeadings) {
+            if (_wcsicmp(std::wstring(candidate.language).c_str(),
+                         language.c_str()) == 0) {
+                return candidate;
+            }
+        }
+        return kHeadings[1];
+    }
+    switch (settings::ActiveGame().interfaceLanguage) {
+    case settings::InterfaceLanguage::English:
+        language = L"english";
+        break;
+    case settings::InterfaceLanguage::Japanese:
+        language = L"japanese";
+        break;
+    case settings::InterfaceLanguage::German:
+        language = L"german";
+        break;
+    case settings::InterfaceLanguage::French:
+        language = L"french";
+        break;
+    case settings::InterfaceLanguage::Italian:
+        language = L"italian";
+        break;
+    case settings::InterfaceLanguage::Spanish:
+        language = L"spanish";
+        break;
+    case settings::InterfaceLanguage::Korean:
+        language = L"koreana";
+        break;
+    case settings::InterfaceLanguage::TraditionalChinese:
+        language = L"tchinese";
+        break;
+    default:
+        language = L"english";
+        break;
+    }
+    for (const auto& candidate : kHeadings) {
+        if (_wcsicmp(std::wstring(candidate.language).c_str(),
+                     language.c_str()) == 0) {
+            return candidate;
+        }
+    }
+    return kHeadings[1];
+}
+
+bool Encode(std::wstring_view source, UINT codePage,
+            std::vector<char>& result) {
+    result.clear();
+    result.reserve(source.size() + 1u);
+    std::size_t offset{};
+    while (offset < source.size()) {
+        std::size_t glyphAt = offset;
+        while (glyphAt < source.size() &&
+               !compat::native_notification_text::IsGlyph(
+                   source[glyphAt])) {
+            ++glyphAt;
+        }
+        if (glyphAt != offset) {
+            const int characters = static_cast<int>(glyphAt - offset);
+            const int bytes = WideCharToMultiByte(
+                codePage, 0, source.data() + offset, characters,
+                nullptr, 0, "?", nullptr);
+            if (bytes <= 0 || result.size() +
+                    static_cast<std::size_t>(bytes) > 8192u) {
+                return false;
+            }
+            const std::size_t writeAt = result.size();
+            result.resize(writeAt + static_cast<std::size_t>(bytes));
+            if (WideCharToMultiByte(
+                    codePage, 0, source.data() + offset, characters,
+                    result.data() + writeAt, bytes, "?", nullptr) != bytes) {
+                return false;
+            }
+        }
+        if (glyphAt == source.size()) break;
+        if (result.size() + 2u > 8192u) return false;
+        const auto encoded =
+            compat::native_notification_text::EncodeGlyph(source[glyphAt]);
+        result.insert(result.end(), encoded.begin(), encoded.end());
+        offset = glyphAt + 1u;
+    }
+    result.push_back('\0');
+    return result.size() > 1u;
+}
 
 // g_mutex must be held by the caller
 void ClearLocked() {
@@ -101,23 +192,16 @@ void ClearLocked() {
 
 } // namespace
 
-void Queue(std::wstring message, std::wstring signature,
-           const Backend& backend) {
+void EnsureInstalled(const Backend& backend) {
     if (!backend.install) return;
+    if (g_installed.load(std::memory_order_acquire)) return;
     const auto image = ImageView::FromModule(GetModuleHandleW(nullptr));
     if (!image) return;
 
-    {
-        std::scoped_lock lock(g_mutex);
-        if (!g_pending.message.empty()) return;
-        g_pending.message = std::move(message);
-        g_pending.signature = std::move(signature);
-        g_backend.store(&backend, std::memory_order_release);
-        g_pendingActive.store(true, std::memory_order_release);
-    }
-
+    g_backend.store(&backend, std::memory_order_release);
     if (backend.install(*image)) {
         g_installed.store(true, std::memory_order_release);
+        g_installPending.store(false, std::memory_order_release);
         g_installDeadline.store(0u, std::memory_order_release);
         return;
     }
@@ -125,8 +209,25 @@ void Queue(std::wstring message, std::wstring signature,
     g_installDeadline.store(
         GetTickCount64() + kDeferredInstallWindowMs,
         std::memory_order_release);
-    g_installPending.store(true, std::memory_order_release);
-    if (backend.deferredLog) Log("%s", backend.deferredLog);
+    const bool alreadyPending =
+        g_installPending.exchange(true, std::memory_order_acq_rel);
+    if (!alreadyPending && backend.deferredLog) {
+        Log("%s", backend.deferredLog);
+    }
+}
+
+void Queue(std::wstring message, std::wstring signature,
+           const Backend& backend) {
+    if (!backend.install) return;
+
+    {
+        std::scoped_lock lock(g_mutex);
+        if (!g_pending.message.empty()) return;
+        g_pending.message = std::move(message);
+        g_pending.signature = std::move(signature);
+        g_pendingActive.store(true, std::memory_order_release);
+    }
+    EnsureInstalled(backend);
 }
 
 void RetryDeferredInstallation() {
@@ -138,7 +239,8 @@ void RetryDeferredInstallation() {
         g_installPending.store(false, std::memory_order_release);
         g_installDeadline.store(0u, std::memory_order_release);
         Clear();
-        LogWarning("Native loaded-module notification disabled: CEG runtime contract remained unavailable for %llu ms",
+        compat::native_notifications::Configure(false, false);
+        LogWarning("Native notification hooks disabled: CEG runtime contract remained unavailable for %llu ms",
                    static_cast<unsigned long long>(
                        kDeferredInstallWindowMs));
         return;
@@ -226,30 +328,19 @@ std::wstring CompletePending() {
 
 bool NativeMessageText(std::wstring_view source, unsigned appId,
                        std::vector<char>& result) {
-    const std::wstring language = SteamLanguage(appId);
-    const LocalizedHeading* selected = &kHeadings[1];
-    for (const auto& candidate : kHeadings) {
-        if (_wcsicmp(std::wstring(candidate.language).c_str(),
-                     language.c_str()) == 0) {
-            selected = &candidate;
-            break;
-        }
-    }
-    std::wstring localized(selected->text);
+    const LocalizedHeading& selected = HeadingFor(appId);
+    std::wstring localized(selected.text);
     const std::size_t details = source.find(L'\n');
     if (details != std::wstring_view::npos) {
         localized.append(source.substr(details));
     }
+    return Encode(localized, selected.codePage, result);
+}
 
-    const int bytes = WideCharToMultiByte(
-        selected->codePage, 0, localized.data(),
-        static_cast<int>(localized.size()), nullptr, 0, "?", nullptr);
-    if (bytes <= 0 || bytes > 8192) return false;
-    result.assign(static_cast<std::size_t>(bytes) + 1u, '\0');
-    return WideCharToMultiByte(
-               selected->codePage, 0, localized.data(),
-               static_cast<int>(localized.size()), result.data(), bytes,
-               "?", nullptr) == bytes;
+bool NativeText(std::wstring_view source, unsigned appId,
+                std::vector<char>& result) {
+    if (source.empty()) return false;
+    return Encode(source, HeadingFor(appId).codePage, result);
 }
 
 bool ConfirmHeld() {

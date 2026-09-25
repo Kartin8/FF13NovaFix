@@ -16,6 +16,7 @@ struct Backend {
 };
 
 // Retains the backend only for the bounded CEG installation retry
+void EnsureInstalled(const Backend& backend);
 void Queue(std::wstring message, std::wstring signature,
            const Backend& backend);
 
@@ -34,6 +35,8 @@ std::wstring CompletePending();
 
 bool NativeMessageText(std::wstring_view source, unsigned appId,
                        std::vector<char>& result);
+bool NativeText(std::wstring_view source, unsigned appId,
+                std::vector<char>& result);
 bool ConfirmHeld();
 void Persist(std::wstring signature, const char* title);
 

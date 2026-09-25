@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 
@@ -19,7 +20,13 @@ bool AppendText(std::vector<char>& destination, std::wstring_view source,
 bool ConvertText(std::wstring_view source, std::vector<char>& text);
 
 void* Open(const char* message, const char* purpose,
-           bool logFailure = true);
+           bool logFailure = true, int layer = 2,
+           int horizontalAlignment = 1, int verticalAlignment = 1);
+void* OpenChoice(const char* message, const char* purpose,
+                 bool logFailure = true, int layer = 2,
+                 int horizontalAlignment = 1,
+                 int verticalAlignment = 1);
 bool Close(void* product);
+bool FocusChoice(void* product);
 
 } // namespace novafix::game::lr_message_window

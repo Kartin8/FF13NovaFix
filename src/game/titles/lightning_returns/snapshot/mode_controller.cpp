@@ -72,7 +72,9 @@ bool CanOpenPluginNativeMessage() {
 }
 
 void* OpenPluginNativeMessage(
-    std::wstring_view message, bool reportFailure) {
+    std::wstring_view message,
+    const compat::native_notifications::OpenRequest& request,
+    bool reportFailure) {
     std::vector<char> native;
     if (!lr_message_window::ConvertText(message, native)) {
         if (reportFailure) {
@@ -80,8 +82,19 @@ void* OpenPluginNativeMessage(
         }
         return nullptr;
     }
-    return lr_message_window::Open(
-        native.data(), "add-on API", reportFailure);
+    const bool timed =
+        request.mode == NOVAFIX_PLUGIN_NATIVE_NOTIFICATION_TIMED;
+    if (timed) {
+        return lr_message_window::Open(
+            native.data(), "add-on API", reportFailure,
+            request.exclusiveInput ? 2 : 10,
+            request.horizontalAlignment, request.verticalAlignment);
+    }
+    native.pop_back();
+    native.insert(native.end(), {'|', 'O', 'K', '\0'});
+    return lr_message_window::OpenChoice(
+        native.data(), "add-on API", reportFailure, 2,
+        request.horizontalAlignment, request.verticalAlignment);
 }
 
 int __cdecl SnapshotAvailabilityHook() {
@@ -234,7 +247,7 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID, PVOID*) {
     lr_addon_notification::Install();
     compat::native_notifications::RegisterBackend({
         &CanOpenPluginNativeMessage, &OpenPluginNativeMessage,
-        &lr_message_window::Close});
+        &lr_message_window::Close, &lr_message_window::FocusChoice});
 
     const bool availabilityDefined = patch::AddRelativeCalls(
         callPatch, *image, kAvailabilityCalls,

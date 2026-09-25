@@ -1,14 +1,17 @@
 #include "compat/addons/plugin_controls.h"
 #include "compat/addons/plugin_descriptor.h"
+#include "compat/addons/plugin_services.h"
 
 #include "common/guarded_call.h"
 #include "diagnostics/log.h"
 
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,7 +26,8 @@ std::string g_hostVersion{"unknown"};
 NovaFixPluginHost g_host{
     sizeof(NovaFixPluginHost), NOVAFIX_PLUGIN_API_VERSION,
     NOVAFIX_PLUGIN_GAME_UNKNOWN, g_hostGameName.c_str(),
-    g_hostVersion.c_str(), nullptr, nullptr};
+    g_hostVersion.c_str(), nullptr, nullptr, nullptr,
+    &plugin_services::GetService};
 
 bool TryQuery(NovaFixPluginQueryFn query,
               const NovaFixPluginDescriptor** descriptor,
@@ -55,6 +59,44 @@ bool TryActivateControl(NovaFixPluginActivateControlFn callback,
     if (!callback || !exceptionCode) return false;
     return guarded_call::Run([&] {
         callback(userData);
+    }, exceptionCode);
+}
+
+bool TryReadControlState(NovaFixPluginReadControlStateFn callback,
+                         void* userData, std::uint32_t* state,
+                         DWORD* exceptionCode) noexcept {
+    if (!callback || !state || !exceptionCode) return false;
+    return guarded_call::Run([&] {
+        *state = callback(userData);
+    }, exceptionCode);
+}
+
+bool TryReadText(NovaFixPluginReadTextFn callback, void* userData,
+                 char* output, std::uint32_t capacity,
+                 std::uint32_t* length, DWORD* exceptionCode) noexcept {
+    if (!callback || !output || !capacity || !length || !exceptionCode) {
+        return false;
+    }
+    return guarded_call::Run([&] {
+        *length = callback(userData, output, capacity);
+    }, exceptionCode);
+}
+
+bool TryReadColor(NovaFixPluginReadColorFn callback, void* userData,
+                  NovaFixPluginColor* value,
+                  DWORD* exceptionCode) noexcept {
+    if (!callback || !value || !exceptionCode) return false;
+    return guarded_call::Run([&] {
+        callback(userData, value);
+    }, exceptionCode);
+}
+
+bool TryWriteColor(NovaFixPluginWriteColorFn callback, void* userData,
+                   const NovaFixPluginColor* value,
+                   DWORD* exceptionCode) noexcept {
+    if (!callback || !value || !exceptionCode) return false;
+    return guarded_call::Run([&] {
+        callback(userData, value);
     }, exceptionCode);
 }
 
@@ -98,6 +140,21 @@ void MarkCallbackFailed(const Plugin& plugin, const Control& control,
     }
 }
 
+void MarkSpecialCallbackFailed(const Plugin& plugin, const Control& control,
+                               bool* failed, const char* operation,
+                               DWORD exceptionCode) {
+    if (!failed || *failed) return;
+    *failed = true;
+    if (exceptionCode) {
+        LogWarning("Add-on UI callback disabled: addon=%s control=%s operation=%s exception=0x%08lX",
+                   plugin.id.c_str(), control.id.c_str(), operation,
+                   exceptionCode);
+    } else {
+        LogWarning("Add-on UI callback disabled: addon=%s control=%s operation=%s reason=invalid value",
+                   plugin.id.c_str(), control.id.c_str(), operation);
+    }
+}
+
 void MarkMenuCallbackFailed(const Plugin& plugin, const NativeMenuItem& item,
                             const char* operation, DWORD exceptionCode) {
     if (item.callbackFailed) return;
@@ -123,6 +180,8 @@ void ConfigureHost(NovaFixPluginGame game, const char* gameName,
     g_host.novaFixVersion = g_hostVersion.c_str();
     g_host.showNativeMessage = showNativeMessage;
     g_host.showNativeMessageEx = showNativeMessageEx;
+    g_host.hostContext = nullptr;
+    g_host.getService = &plugin_services::GetService;
 }
 
 bool Discover(HMODULE module, std::wstring_view source) {
@@ -220,6 +279,116 @@ bool ActivateControl(const Plugin& plugin, const Control& control) {
     if (!TryActivateControl(control.activate, control.userData,
                             &exceptionCode)) {
         MarkCallbackFailed(plugin, control, "activate", exceptionCode);
+        return false;
+    }
+    return true;
+}
+
+uint32_t ReadControlState(const Plugin& plugin, const Control& control) {
+    constexpr std::uint32_t kDefault =
+        NOVAFIX_PLUGIN_CONTROL_STATE_VISIBLE |
+        NOVAFIX_PLUGIN_CONTROL_STATE_ENABLED;
+    if (!control.readState) return kDefault;
+    if (control.stateCallbackFailed) {
+        return NOVAFIX_PLUGIN_CONTROL_STATE_VISIBLE;
+    }
+
+    DWORD exceptionCode{};
+    std::uint32_t state{};
+    if (!TryReadControlState(control.readState, control.stateUserData, &state,
+                             &exceptionCode)) {
+        MarkSpecialCallbackFailed(plugin, control,
+                                  &control.stateCallbackFailed,
+                                  "read-state", exceptionCode);
+        return NOVAFIX_PLUGIN_CONTROL_STATE_VISIBLE;
+    }
+    return state & (NOVAFIX_PLUGIN_CONTROL_STATE_VISIBLE |
+                    NOVAFIX_PLUGIN_CONTROL_STATE_ENABLED |
+                    NOVAFIX_PLUGIN_CONTROL_STATE_READ_ONLY |
+                    NOVAFIX_PLUGIN_CONTROL_STATE_BUSY);
+}
+
+bool ReadText(const Plugin& plugin, const Control& control,
+              const char** value) {
+    if (!value || !control.available || !control.readText ||
+        control.textCallbackFailed) {
+        return false;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (control.textCacheValid && now < control.nextTextRefresh) {
+        *value = control.cachedText.c_str();
+        return true;
+    }
+
+    constexpr std::uint32_t kCapacity =
+        NOVAFIX_PLUGIN_MAX_STATUS_TEXT_BYTES + 1u;
+    std::array<char, kCapacity> buffer{};
+    std::uint32_t length{};
+    DWORD exceptionCode{};
+    if (!TryReadText(control.readText, control.textUserData, buffer.data(),
+                     kCapacity, &length, &exceptionCode)) {
+        MarkSpecialCallbackFailed(plugin, control,
+                                  &control.textCallbackFailed,
+                                  "read-text", exceptionCode);
+        return false;
+    }
+    length = std::min(length, kCapacity - 1u);
+    const auto terminator = std::find(
+        buffer.begin(), buffer.begin() + length, '\0');
+    length = static_cast<std::uint32_t>(
+        std::distance(buffer.begin(), terminator));
+    buffer[length] = '\0';
+    control.cachedText.assign(buffer.data(), length);
+    control.textCacheValid = true;
+    control.nextTextRefresh = now +
+        std::chrono::milliseconds(control.refreshIntervalMs);
+    *value = control.cachedText.c_str();
+    return true;
+}
+
+bool ReadColor(const Plugin& plugin, const Control& control,
+               NovaFixPluginColor* value) {
+    if (!value || !control.available || !control.readColor ||
+        control.colorCallbackFailed) {
+        return false;
+    }
+    DWORD exceptionCode{};
+    NovaFixPluginColor result{};
+    if (!TryReadColor(control.readColor, control.colorUserData, &result,
+                      &exceptionCode) ||
+        !std::isfinite(result.red) || !std::isfinite(result.green) ||
+        !std::isfinite(result.blue) || !std::isfinite(result.alpha) ||
+        result.red < 0.0f || result.red > 1.0f ||
+        result.green < 0.0f || result.green > 1.0f ||
+        result.blue < 0.0f || result.blue > 1.0f ||
+        result.alpha < 0.0f || result.alpha > 1.0f) {
+        MarkSpecialCallbackFailed(plugin, control,
+                                  &control.colorCallbackFailed,
+                                  "read-color", exceptionCode);
+        return false;
+    }
+    *value = result;
+    return true;
+}
+
+bool WriteColor(const Plugin& plugin, const Control& control,
+                const NovaFixPluginColor& value) {
+    if (!control.available || !control.writeColor ||
+        control.colorCallbackFailed || !std::isfinite(value.red) ||
+        !std::isfinite(value.green) || !std::isfinite(value.blue) ||
+        !std::isfinite(value.alpha) || value.red < 0.0f ||
+        value.red > 1.0f || value.green < 0.0f || value.green > 1.0f ||
+        value.blue < 0.0f || value.blue > 1.0f || value.alpha < 0.0f ||
+        value.alpha > 1.0f) {
+        return false;
+    }
+    DWORD exceptionCode{};
+    if (!TryWriteColor(control.writeColor, control.colorUserData, &value,
+                       &exceptionCode)) {
+        MarkSpecialCallbackFailed(plugin, control,
+                                  &control.colorCallbackFailed,
+                                  "write-color", exceptionCode);
         return false;
     }
     return true;

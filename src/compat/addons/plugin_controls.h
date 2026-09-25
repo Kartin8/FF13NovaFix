@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+#include <chrono>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,10 +23,27 @@ struct Control {
     NovaFixPluginWriteValueFn writeValue{};
     NovaFixPluginActivateControlFn activate{};
     void* userData{};
+    NovaFixPluginReadControlStateFn readState{};
+    void* stateUserData{};
+    NovaFixPluginReadTextFn readText{};
+    void* textUserData{};
+    uint32_t refreshIntervalMs{};
+    NovaFixPluginReadColorFn readColor{};
+    NovaFixPluginWriteColorFn writeColor{};
+    void* colorUserData{};
+    uint32_t colorFlags{};
+    uint32_t presentationFlags{};
+    std::string valueFormat;
     std::vector<std::string> options;
     bool available{true};
     std::string issue;
     mutable bool callbackFailed{};
+    mutable bool stateCallbackFailed{};
+    mutable bool textCallbackFailed{};
+    mutable bool colorCallbackFailed{};
+    mutable bool textCacheValid{};
+    mutable std::string cachedText;
+    mutable std::chrono::steady_clock::time_point nextTextRefresh{};
 };
 
 struct NativeMenuItem {
@@ -52,6 +70,13 @@ struct Plugin {
     std::wstring source;
     std::string id;
     std::string name;
+    std::string author;
+    std::string version;
+    std::string description;
+    std::string website;
+    NovaFixPluginColor headerColor{};
+    bool hasHeaderColor{};
+    bool headerColorAppliesToContent{};
     std::vector<Control> controls;
     std::vector<NativeMenu> nativeMenus;
 };
@@ -71,6 +96,13 @@ const std::vector<Plugin>& CurrentPlugins();
 bool ReadValue(const Plugin& plugin, const Control& control, float* value);
 bool WriteValue(const Plugin& plugin, const Control& control, float value);
 bool ActivateControl(const Plugin& plugin, const Control& control);
+uint32_t ReadControlState(const Plugin& plugin, const Control& control);
+bool ReadText(const Plugin& plugin, const Control& control,
+              const char** value);
+bool ReadColor(const Plugin& plugin, const Control& control,
+               NovaFixPluginColor* value);
+bool WriteColor(const Plugin& plugin, const Control& control,
+                const NovaFixPluginColor& value);
 
 // LR menu callbacks run on the window thread; failure disables only that item
 bool ReadMenuState(const Plugin& plugin, const NativeMenuItem& item,

@@ -158,9 +158,17 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID parameter, PVOID*) {
     }
 
     const bool nativeNotificationsSupported =
-        profile.title == game::Title::LightningReturns &&
-        profile.support == game::BuildSupport::ExactBuild;
-    compat::native_notifications::Configure(nativeNotificationsSupported);
+        profile.support == game::BuildSupport::ExactBuild &&
+        (profile.title == game::Title::FinalFantasyXIII ||
+         profile.title == game::Title::FinalFantasyXIII2 ||
+         profile.title == game::Title::LightningReturns);
+    compat::native_notifications::Configure(
+        nativeNotificationsSupported, nativeNotificationsSupported);
+    if (profile.title == game::Title::FinalFantasyXIII) {
+        game::ff13_addon_notification::Initialize();
+    } else if (profile.title == game::Title::FinalFantasyXIII2) {
+        game::xiii2_addon_notification::Initialize();
+    }
     compat::plugin_controls::ConfigureHost(
         PluginGame(profile.title), profile.titleName, kVersion,
         nativeNotificationsSupported
