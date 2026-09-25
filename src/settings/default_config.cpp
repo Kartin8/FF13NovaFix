@@ -80,6 +80,10 @@ void AppendGraphics(std::string& output, game::Title title) {
     AppendLine(output, "; Used only for Windowed and Borderless");
     AppendValue(output, "Width", value.width);
     AppendValue(output, "Height", value.height);
+    AppendLine(output, "; Optional render resolution independent of window size");
+    AppendBoolean(output, "CustomBackBuffer", value.customBackBuffer);
+    AppendValue(output, "BackBufferWidth", value.backBufferWidth);
+    AppendValue(output, "BackBufferHeight", value.backBufferHeight);
 
     AppendLine(output);
     AppendLine(output, "; IMAGE QUALITY");

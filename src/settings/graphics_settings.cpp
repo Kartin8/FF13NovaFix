@@ -101,6 +101,11 @@ void Normalize(GraphicsSettings& value) {
     value.monitorIndex = std::clamp(value.monitorIndex, 0u, 16u);
     value.width = std::clamp(value.width, 640u, 16384u);
     value.height = std::clamp(value.height, 480u, 16384u);
+    if (value.backBufferWidth < 640u || value.backBufferHeight < 480u) {
+        value.customBackBuffer = false;
+    }
+    value.backBufferWidth = std::clamp(value.backBufferWidth, 640u, 16384u);
+    value.backBufferHeight = std::clamp(value.backBufferHeight, 480u, 16384u);
     value.shadowResolution = ShadowFromLauncherIndex(ShadowLauncherIndex(value.shadowResolution));
     value.msaaSamples = MsaaFromLauncherIndex(MsaaLauncherIndex(value.msaaSamples));
     constexpr unsigned anisotropyValues[]{0, 2, 4, 8, 16};
@@ -151,6 +156,13 @@ BOOL CALLBACK LoadSettings(PINIT_ONCE, PVOID, PVOID*) {
             loaded.monitorIndex);
         loaded.width = ReadUnsigned(L"Width", loaded.width);
         loaded.height = ReadUnsigned(L"Height", loaded.height);
+        loaded.customBackBuffer = ini::ReadBoolean(
+            g_configPath, L"Graphics", L"CustomBackBuffer",
+            loaded.customBackBuffer);
+        loaded.backBufferWidth = ReadUnsigned(
+            L"BackBufferWidth", loaded.backBufferWidth);
+        loaded.backBufferHeight = ReadUnsigned(
+            L"BackBufferHeight", loaded.backBufferHeight);
         loaded.shadowResolution = ReadUnsigned(L"ShadowResolution", loaded.shadowResolution);
         loaded.msaaSamples = ReadUnsigned(L"MSAA", loaded.msaaSamples);
         loaded.highResolutionScissorFix = ini::ReadBoolean(
@@ -230,7 +242,7 @@ bool SaveConfig(const GraphicsSettings& value) {
     const bool unknown = title == game::Title::Unknown;
 
     std::vector<ini::Entry> entries;
-    entries.reserve(14);
+    entries.reserve(24);
     if (ff13 || ff13_2 || unknown) {
         AddSetting(entries, L"OverrideLauncherGraphics",
                    value.overrideLauncherGraphics);
@@ -240,6 +252,9 @@ bool SaveConfig(const GraphicsSettings& value) {
         AddSetting(entries, L"Monitor", value.monitorIndex, names::kMonitor);
         AddSetting(entries, L"Width", value.width);
         AddSetting(entries, L"Height", value.height);
+        AddSetting(entries, L"CustomBackBuffer", value.customBackBuffer);
+        AddSetting(entries, L"BackBufferWidth", value.backBufferWidth);
+        AddSetting(entries, L"BackBufferHeight", value.backBufferHeight);
         AddSetting(entries, L"ShadowResolution", value.shadowResolution);
         AddSetting(entries, L"MSAA", value.msaaSamples);
         AddSetting(entries, L"OptimizeUiVertexBuffer",

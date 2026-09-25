@@ -137,6 +137,11 @@ void ApplyProfile(HWND focusWindow, D3DPRESENT_PARAMETERS* parameters) {
         }
         break;
     }
+    if (displayMode == settings::DisplayMode::BorderlessFullscreen &&
+        profile.customBackBuffer) {
+        parameters->BackBufferWidth = profile.backBufferWidth;
+        parameters->BackBufferHeight = profile.backBufferHeight;
+    }
     g_environmentDirty.store(false, std::memory_order_release);
 }
 

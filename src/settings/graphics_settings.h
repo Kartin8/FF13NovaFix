@@ -20,6 +20,9 @@ struct GraphicsSettings {
     unsigned monitorIndex{0};
     unsigned width{1920};
     unsigned height{1080};
+    bool customBackBuffer{false};
+    unsigned backBufferWidth{1920};
+    unsigned backBufferHeight{1080};
     unsigned shadowResolution{4096};
     unsigned msaaSamples{4};
     bool highResolutionScissorFix{true};
