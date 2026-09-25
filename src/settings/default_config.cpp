@@ -2,6 +2,7 @@
 
 #include "game/core/game_profile.h"
 #include "settings/config_path.h"
+#include "settings/game_settings.h"
 #include "settings/graphics_settings.h"
 #include "settings/input_settings.h"
 #include "settings/named_values.h"
@@ -189,6 +190,33 @@ void AppendPerformance(std::string& output, game::Title title) {
     AppendLine(output);
 }
 
+void AppendGame(std::string& output, game::Title title) {
+    if (title != game::Title::FinalFantasyXIII &&
+        title != game::Title::FinalFantasyXIII2 &&
+        title != game::Title::LightningReturns) {
+        return;
+    }
+
+    const GameSettings value{};
+    AppendLine(output, "[Game]");
+    AppendLine(output);
+    AppendBoolean(output, "OverrideLanguageSettings",
+                  value.overrideLanguageSettings);
+    AppendLine(output, "; English | German | French | Italian | Korean | Spanish | TraditionalChinese | Japanese");
+    AppendNamedValue(
+        output, "InterfaceLanguage",
+        static_cast<unsigned>(value.interfaceLanguage),
+        names::kInterfaceLanguage);
+    if (title != game::Title::LightningReturns) {
+        AppendLine(output, "; English | Japanese");
+        AppendNamedValue(
+            output, "VoiceLanguage",
+            static_cast<unsigned>(value.voiceLanguage),
+            names::kVoiceLanguage);
+    }
+    AppendLine(output);
+}
+
 void AppendInput(std::string& output) {
     const InputSettings value{};
     AppendLine(output, "[Input]");
@@ -235,6 +263,7 @@ std::string BuildDefaultConfig(game::Title title) {
     AppendLine(output, "; Edit while the game is closed");
     AppendLine(output);
     AppendGraphics(output, title);
+    AppendGame(output, title);
     AppendPerformance(output, title);
     AppendInput(output);
     AppendLine(output, "[Diagnostics]");

@@ -5,6 +5,7 @@
 #include "display/monitor_layout.h"
 #include "game/core/game_profile.h"
 #include "launcher/command_line_rewriter.h"
+#include "settings/game_settings.h"
 #include "settings/graphics_settings.h"
 
 #include <windows.h>
@@ -28,50 +29,74 @@ std::wstring g_wideCommandLine;
 BOOL CALLBACK BuildAnsiCommandLine(PINIT_ONCE, PVOID, PVOID*) {
     const char* original = g_getCommandLineA ? g_getCommandLineA() : nullptr;
     if (!original) return FALSE;
-    if (!game::Supports(game::Capability::LauncherGraphics) ||
-        !settings::OverridesLauncherGraphics()) {
+    const game::Title title = game::CurrentProfile().title;
+    const bool rewriteGraphics =
+        game::Supports(game::Capability::LauncherGraphics) &&
+        settings::OverridesLauncherGraphics();
+    const bool rewriteLanguages =
+        (title == game::Title::FinalFantasyXIII ||
+         title == game::Title::FinalFantasyXIII2) &&
+        settings::OverridesGameLanguage();
+    if (!rewriteGraphics && !rewriteLanguages) {
         g_ansiCommandLine = original;
         return TRUE;
     }
     const settings::GraphicsSettings graphics = settings::Active();
-    const SIZE monitor = display::ConfiguredMonitorSize(graphics.monitorIndex);
-    g_ansiCommandLine = RewriteGraphicsOptions(original, graphics,
-                                                static_cast<unsigned>(monitor.cx),
-                                                static_cast<unsigned>(monitor.cy));
+    const settings::GameSettings gameSettings = settings::ActiveGame();
+    const SIZE monitor = rewriteGraphics
+        ? display::ConfiguredMonitorSize(graphics.monitorIndex) : SIZE{};
+    g_ansiCommandLine = RewriteLaunchOptions(
+        original, graphics, gameSettings,
+        static_cast<unsigned>(monitor.cx),
+        static_cast<unsigned>(monitor.cy), rewriteGraphics,
+        rewriteLanguages);
     const bool desktopSized =
         graphics.displayMode == settings::DisplayMode::BorderlessFullscreen;
-    Log("Graphics arguments applied: type=ANSI mode=%u render=%ux%u source=%s",
+    Log("Launch arguments applied: type=ANSI graphics=%u mode=%u render=%ux%u interface-language=%u voice-language=%u",
+        rewriteGraphics ? 1u : 0u,
         static_cast<unsigned>(graphics.displayMode),
         desktopSized && monitor.cx > 0 ? static_cast<unsigned>(monitor.cx) : graphics.width,
         desktopSized && monitor.cy > 0 ? static_cast<unsigned>(monitor.cy) : graphics.height,
-        game::CurrentProfile().title == game::Title::FinalFantasyXIII2
-            ? "XIII-2 early command line" : "XIII early command line");
+        static_cast<unsigned>(gameSettings.interfaceLanguage),
+        static_cast<unsigned>(gameSettings.voiceLanguage));
     return TRUE;
 }
 
 BOOL CALLBACK BuildWideCommandLine(PINIT_ONCE, PVOID, PVOID*) {
     const wchar_t* original = g_getCommandLineW ? g_getCommandLineW() : nullptr;
     if (!original) return FALSE;
-    if (!game::Supports(game::Capability::LauncherGraphics) ||
-        !settings::OverridesLauncherGraphics()) {
+    const game::Title title = game::CurrentProfile().title;
+    const bool rewriteGraphics =
+        game::Supports(game::Capability::LauncherGraphics) &&
+        settings::OverridesLauncherGraphics();
+    const bool rewriteLanguages =
+        (title == game::Title::FinalFantasyXIII ||
+         title == game::Title::FinalFantasyXIII2) &&
+        settings::OverridesGameLanguage();
+    if (!rewriteGraphics && !rewriteLanguages) {
         g_wideCommandLine = original;
         return TRUE;
     }
     const settings::GraphicsSettings graphics = settings::Active();
-    const SIZE monitor = display::ConfiguredMonitorSize(graphics.monitorIndex);
-    g_wideCommandLine = RewriteGraphicsOptions(original, graphics,
-                                                static_cast<unsigned>(monitor.cx),
-                                                static_cast<unsigned>(monitor.cy));
+    const settings::GameSettings gameSettings = settings::ActiveGame();
+    const SIZE monitor = rewriteGraphics
+        ? display::ConfiguredMonitorSize(graphics.monitorIndex) : SIZE{};
+    g_wideCommandLine = RewriteLaunchOptions(
+        original, graphics, gameSettings,
+        static_cast<unsigned>(monitor.cx),
+        static_cast<unsigned>(monitor.cy), rewriteGraphics,
+        rewriteLanguages);
     const bool desktopSized =
         graphics.displayMode == settings::DisplayMode::BorderlessFullscreen;
-    Log("Graphics arguments applied: type=wide mode=%u render=%ux%u source=%s",
+    Log("Launch arguments applied: type=wide graphics=%u mode=%u render=%ux%u interface-language=%u voice-language=%u",
+        rewriteGraphics ? 1u : 0u,
         static_cast<unsigned>(graphics.displayMode),
         desktopSized && monitor.cx > 0
             ? static_cast<unsigned>(monitor.cx) : graphics.width,
         desktopSized && monitor.cy > 0
             ? static_cast<unsigned>(monitor.cy) : graphics.height,
-        game::CurrentProfile().title == game::Title::FinalFantasyXIII2
-            ? "XIII-2 early command line" : "XIII early command line");
+        static_cast<unsigned>(gameSettings.interfaceLanguage),
+        static_cast<unsigned>(gameSettings.voiceLanguage));
     return TRUE;
 }
 

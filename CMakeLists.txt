@@ -78,6 +78,7 @@ set(NOVAFIX_SOURCES
     src/game/shared/timing/cutscene_terminal_frame_runtime.cpp
     src/game/shared/timing/frame_pacing.cpp
     src/game/shared/graceful_shutdown.cpp
+    src/game/shared/language_override.cpp
     src/game/shared/timing/facial_animation_timing.cpp
     src/game/shared/timing/facial_animation_policy.cpp
     src/game/shared/ui/scissor_fix.cpp
@@ -169,6 +170,7 @@ set(NOVAFIX_SOURCES
     src/game/titles/lightning_returns/ui/text_editor/input_handler.cpp
     src/game/titles/lightning_returns/ui/text_editor/message_window_adapter.cpp
     src/settings/graphics_settings.cpp
+    src/settings/game_settings.cpp
     src/settings/config_path.cpp
     src/settings/default_config.cpp
     src/settings/input_settings.cpp

@@ -14,6 +14,7 @@
 #include "game/titles/ff13/ui/addon_notification.h"
 #include "game/core/game_profile.h"
 #include "game/titles/ff13_2/ui/addon_notification.h"
+#include "game/shared/language_override.h"
 #include "game/titles/lightning_returns/snapshot/mode_controller.h"
 #include "game/titles/lightning_returns/ui/addon_notification.h"
 #include "game/steam/steam_cloud_safety.h"
@@ -132,6 +133,11 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID parameter, PVOID*) {
         LogWarning("Modified executable detected: each fix will validate its own patch site");
     }
     Log("Configuration storage: %ls", settings::storage::ConfigFile().c_str());
+    if (profile.title == game::Title::FinalFantasyXIII ||
+        profile.title == game::Title::FinalFantasyXIII2 ||
+        profile.title == game::Title::LightningReturns) {
+        game::language_override::Report();
+    }
     g_attachedTitle.store(profile.title, std::memory_order_release);
     settings::SetLauncherIntegrationEnabled(
         profile.title == game::Title::FinalFantasyXIII);
@@ -214,6 +220,11 @@ void Attach(HMODULE module) {
         // Install before the game can cache a dynamically resolved D3D factory
         // Logging remains buffered until Initialize runs outside the loader lock
         early_d3d_dispatch::Install();
+    }
+    if (title == game::Title::FinalFantasyXIII ||
+        title == game::Title::FinalFantasyXIII2 ||
+        title == game::Title::LightningReturns) {
+        game::language_override::InstallEarly(title);
     }
     if (title == game::Title::FinalFantasyXIII ||
         title == game::Title::FinalFantasyXIII2) {

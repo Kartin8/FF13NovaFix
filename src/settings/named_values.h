@@ -13,6 +13,13 @@ inline constexpr const wchar_t* kD3D9Backend[]{
     L"Automatic", L"System", L"LocalDXVK"};
 inline constexpr const wchar_t* kLoadedModulesNotificationMode[]{
     L"Never", L"WhenChanged", L"EveryLaunch"};
+inline constexpr const wchar_t* kInterfaceLanguage[]{
+    L"English", L"Japanese", L"German", L"French",
+    L"Italian", L"Spanish", L"Korean", L"TraditionalChinese"};
+inline constexpr const wchar_t* kVoiceLanguage[]{
+    L"English", L"Japanese"};
+inline constexpr const wchar_t* kLegacyVoiceLanguage[]{
+    L"Launcher", L"English", L"Japanese"};
 inline constexpr const wchar_t* kPromptMode[]{
     L"Automatic", L"Controller", L"Keyboard"};
 inline constexpr const wchar_t* kOverlayHotkey[]{
