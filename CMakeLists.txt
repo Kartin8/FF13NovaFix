@@ -47,6 +47,7 @@ set(NOVAFIX_SOURCES
     src/compat/modules/loaded_modules.cpp
     src/compat/platform.cpp
     src/d3d9/backend.cpp
+    src/d3d9/reshade_chain.cpp
     src/d3d9/device_hook_policy.cpp
     src/d3d9/device_hooks.cpp
     src/d3d9/device_shader_hooks.cpp

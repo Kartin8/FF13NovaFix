@@ -1,6 +1,8 @@
 #include "game/titles/lightning_returns/ui/text_editor/editor.h"
 
 #include "diagnostics/log.h"
+#include "d3d9/backend.h"
+#include "compat/platform.h"
 #include "game/steam/steam_keyboard.h"
 #include "game/titles/lightning_returns/ui/prompt_mode_manager.h"
 #include "game/titles/lightning_returns/ui/text_editor/native_api.h"
@@ -36,7 +38,8 @@ NativeApi Api() {
 
 void OpenControllerKeyboard(std::string_view initialText,
                             std::size_t maximumCharacters) {
-    if (steam::keyboard::IsOpen() ||
+    if ((!compat::IsWine() && d3d9::backend::IsDxvk()) ||
+        steam::keyboard::IsOpen() ||
         !steam::keyboard::Open(
             initialText, maximumCharacters)) {
         return;

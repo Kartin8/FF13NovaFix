@@ -4,7 +4,7 @@
 #include "common/module_path.h"
 #include "compat/compatibility.h"
 #include "compat/platform.h"
-#include "game/core/game_profile.h"
+#include "d3d9/reshade_chain.h"
 #include "settings/performance_settings.h"
 
 #include <array>
@@ -27,6 +27,7 @@ enum class Kind {
 struct Candidate {
     std::wstring path;
     Kind kind{Kind::Unavailable};
+    bool localDxvkChain{};
 };
 
 struct FileIdentity {
@@ -40,6 +41,7 @@ INIT_ONCE g_loadOnce = INIT_ONCE_STATIC_INIT;
 HMODULE g_module = nullptr;
 Kind g_kind = Kind::Unavailable;
 std::wstring g_path;
+bool g_localDxvkChain = false;
 
 const char* KindName(Kind kind) {
     switch (kind) {
@@ -101,6 +103,7 @@ std::vector<Candidate> BuildCandidates() {
         return {{path::SystemFile(L"d3d9.dll"), Kind::System}};
     case settings::D3D9Backend::LocalDXVK:
         return {
+            {BesideProxy(L"ReShade\\d3d9.dll"), Kind::ReShade, true},
             {BesideProxy(L"dxvk.dll"), Kind::DXVK},
             {path::SystemFile(L"d3d9.dll"), Kind::System},
         };
@@ -147,36 +150,6 @@ bool SameFile(const std::wstring& left, const std::wstring& right) {
 
 bool IsProxyPath(const std::wstring& candidatePath) {
     return SameFile(path::ModuleFile(OwnModule()), candidatePath);
-}
-
-void PrepareLocalDxvkCompatibility(Kind kind) {
-    if (kind != Kind::DXVK ||
-        game::CurrentProfile().title != game::Title::LightningReturns) {
-        return;
-    }
-
-    // Steam explicitly enables its Vulkan overlay layer in the process
-    // environment.  In LR the layer keeps a stale presentation callback
-    // across the startup movie transition and executes freed heap memory.
-    // Disable only the Vulkan path; gameoverlayrenderer.dll remains injected
-    // and can continue to use its ordinary D3D9 interception path over DXVK.
-    constexpr wchar_t kEnableVariable[] =
-        L"ENABLE_VK_LAYER_VALVE_steam_overlay_1";
-    constexpr wchar_t kDisableVariable[] =
-        L"DISABLE_VK_LAYER_VALVE_steam_overlay_1";
-
-    const bool enableCleared =
-        SetEnvironmentVariableW(kEnableVariable, nullptr) != FALSE;
-    const bool disableSet =
-        SetEnvironmentVariableW(kDisableVariable, L"1") != FALSE;
-    if (enableCleared && disableSet) {
-        LogInfo("LR Local DXVK: disabled the unstable Steam Vulkan overlay layer");
-    } else {
-        LogWarning(
-            "LR Local DXVK: could not disable the Steam Vulkan overlay layer "
-            "(enable-clear=%d disable-set=%d error=%lu)",
-            enableCleared ? 1 : 0, disableSet ? 1 : 0, GetLastError());
-    }
 }
 
 HMODULE LoadBackendLibrary(const std::wstring& filePath, DWORD* error) {
@@ -248,8 +221,11 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
             if (candidate.kind == Kind::DXVK) requestedDxvkFailed = true;
             continue;
         }
-
-        PrepareLocalDxvkCompatibility(candidate.kind);
+        if (candidate.localDxvkChain &&
+            !reshade_chain::PrepareLocalDxvk(
+                candidate.path, BesideProxy(L"dxvk.dll"))) {
+            continue;
+        }
 
         DWORD loadError = ERROR_SUCCESS;
         HMODULE loaded = LoadBackendLibrary(candidate.path, &loadError);
@@ -275,7 +251,12 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
         g_module = loaded;
         g_path = loadedPath.empty() ? candidate.path : loadedPath;
         g_kind = ClassifyLoaded(loaded, g_path, candidate.kind);
+        g_localDxvkChain = candidate.localDxvkChain;
         LogInfo("D3D9 renderer: %s (%ls)", KindName(g_kind), g_path.c_str());
+        if (g_localDxvkChain) {
+            LogInfo("D3D9 renderer chain requested: ReShade -> Local DXVK (%ls)",
+                    BesideProxy(L"dxvk.dll").c_str());
+        }
         if (requestedDxvkFailed && g_kind == Kind::System) {
             LogWarning("Could not load local DXVK: using system Direct3D 9");
         }
@@ -305,6 +286,15 @@ FARPROC Export(const char* name) {
 FARPROC ExportOrdinal(WORD ordinal) {
     HMODULE module = Module();
     return module && ordinal ? GetProcAddress(module, MAKEINTRESOURCEA(ordinal)) : nullptr;
+}
+
+bool IsDxvk() {
+    EnsureLoaded();
+    if (g_kind == Kind::DXVK) return true;
+    if (!g_localDxvkChain) return false;
+    const HMODULE module = GetModuleHandleW(L"dxvk.dll");
+    return HasDxvkAnnotationBridge(module) &&
+           SameFile(path::ModuleFile(module), BesideProxy(L"dxvk.dll"));
 }
 
 } // namespace novafix::d3d9::backend

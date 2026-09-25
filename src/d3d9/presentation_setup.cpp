@@ -5,6 +5,7 @@
 #include "display/display_profile.h"
 #include "display/presentation_policy.h"
 #include "game/core/game_profile.h"
+#include "settings/graphics_settings.h"
 #include "settings/performance_settings.h"
 
 namespace novafix::d3d9::presentation_setup {
@@ -76,6 +77,19 @@ void ApplyRuntimePolicy(
         parameters->FullScreen_RefreshRateInHz);
 }
 
+bool ShouldApplyLocalDxvkBootstrapProfile(
+    const D3DPRESENT_PARAMETERS* parameters) {
+    if (!parameters ||
+        game::CurrentProfile().title != game::Title::LightningReturns ||
+        settings::ActivePerformance().d3d9Backend !=
+            settings::D3D9Backend::LocalDXVK ||
+        !settings::OverridesLauncherGraphics()) {
+        return false;
+    }
+    return parameters->BackBufferWidth < 640 ||
+           parameters->BackBufferHeight < 480;
+}
+
 } // namespace
 
 DeviceCreationState PrepareDeviceCreation(
@@ -91,7 +105,8 @@ DeviceCreationState PrepareDeviceCreation(
     state.forcedProfile =
         compat::compatibility::AllowsNovaFixChanges() &&
         game::Supports(game::Capability::PresentationOverride) &&
-        display::ShouldApplyProfile(parameters);
+        (display::ShouldApplyProfile(parameters) ||
+         ShouldApplyLocalDxvkBootstrapProfile(parameters));
     if (state.forcedProfile) {
         display::ApplyProfile(focusWindow, parameters);
     }

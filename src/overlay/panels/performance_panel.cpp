@@ -186,7 +186,8 @@ void DrawPerformancePanel() {
         widgets::SettingRow(
             "Renderer",
             "Automatic tries d3d9_chain.dll or ReShade\\d3d9.dll first, then the system-provided D3D9 backend. "
-            "Local DXVK uses dxvk.dll next to NovaFix. Takes effect after restart");
+            "Local DXVK uses dxvk.dll next to NovaFix, through ReShade\\d3d9.dll when present. "
+            "NovaFix configures ReShade's proxy setting and keeps a backup of its INI. Takes effect after restart");
         int backend = static_cast<int>(g_settings.d3d9Backend);
         if (ImGui::Combo("##D3D9Backend", &backend, kD3D9BackendLabels,
                          static_cast<int>(std::size(kD3D9BackendLabels)))) {
