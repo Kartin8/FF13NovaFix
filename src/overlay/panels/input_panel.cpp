@@ -43,6 +43,8 @@ void EnsureSettings() {
     if (g_ready) {
         g_settings.centerOverlayOnOpen =
             settings::StoredInput().centerOverlayOnOpen;
+        g_settings.rememberOverlayState =
+            settings::StoredInput().rememberOverlayState;
         return;
     }
     g_settings = settings::StoredInput();
@@ -53,6 +55,8 @@ void SaveSettings() {
     g_editPending = false;
     g_settings.centerOverlayOnOpen =
         settings::StoredInput().centerOverlayOnOpen;
+    g_settings.rememberOverlayState =
+        settings::StoredInput().rememberOverlayState;
     if (settings::SaveInput(g_settings)) return;
     g_settings = settings::StoredInput();
     settings::PreviewInput(g_settings);

@@ -5,11 +5,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstring>
 #include <iterator>
 #include <string>
 #include <string_view>
 
 #include "imgui.h"
+#include "imgui_internal.h"
 
 namespace novafix::overlay::style {
 namespace {
@@ -47,6 +49,7 @@ constexpr ImWchar kChineseGlyphRanges[]{
     0,
 };
 std::atomic_bool g_fontFallbackLogged{};
+ImFont* g_pluginTitleFont = nullptr;
 
 std::string Utf8(std::wstring_view value) {
     if (value.empty()) return {};
@@ -151,6 +154,28 @@ bool AddEmbeddedUiFont(ImGuiIO& io, float scale) {
                kUiGlyphRanges) != nullptr;
 }
 
+ImFont* AddEmbeddedPluginTitleFont(ImGuiIO& io, float scale) {
+    MEMORY_BASIC_INFORMATION memory{};
+    if (!VirtualQuery(&kEmbeddedUiFontResource, &memory, sizeof(memory)) ||
+        !memory.AllocationBase) {
+        return nullptr;
+    }
+    const HMODULE module = static_cast<HMODULE>(memory.AllocationBase);
+    const HRSRC resource = FindResourceW(
+        module, MAKEINTRESOURCEW(kEmbeddedUiFontResource), RT_RCDATA);
+    if (!resource) return nullptr;
+    const HGLOBAL loaded = LoadResource(module, resource);
+    const DWORD size = SizeofResource(module, resource);
+    void* data = loaded ? LockResource(loaded) : nullptr;
+    if (!data || !size) return nullptr;
+
+    ImFontConfig config{};
+    config.FontDataOwnedByAtlas = false;
+    return io.Fonts->AddFontFromMemoryTTF(
+        data, static_cast<int>(size), 16.5f * scale, &config,
+        kUiGlyphRanges);
+}
+
 } // namespace
 
 float ResolveUiScale(HWND window) {
@@ -178,6 +203,7 @@ float ResolveUiScale(HWND window) {
 }
 
 void ConfigureFonts(ImGuiIO& io, float scale) {
+    g_pluginTitleFont = nullptr;
     const bool underWine =
         compat::CurrentEnvironment().host != compat::Host::Windows;
     const bool embeddedFont = underWine && AddEmbeddedUiFont(io, scale);
@@ -194,6 +220,26 @@ void ConfigureFonts(ImGuiIO& io, float scale) {
         }
     }
     AddSystemLanguageFallbacks(io, scale);
+    g_pluginTitleFont = AddEmbeddedPluginTitleFont(io, scale);
+}
+
+ImFont* PluginTitleFont(const char* utf8Text) {
+    if (!g_pluginTitleFont || !utf8Text) return nullptr;
+
+    const char* cursor = utf8Text;
+    const char* end = utf8Text + std::strlen(utf8Text);
+    while (cursor < end) {
+        unsigned int codepoint = 0;
+        const int byteCount = ImTextCharFromUtf8(&codepoint, cursor, end);
+        if (byteCount <= 0 || codepoint == 0 ||
+            codepoint > IM_UNICODE_CODEPOINT_MAX ||
+            !g_pluginTitleFont->IsGlyphInFont(
+                static_cast<ImWchar>(codepoint))) {
+            return nullptr;
+        }
+        cursor += byteCount;
+    }
+    return g_pluginTitleFont;
 }
 
 void ConfigureStyle(float scale) {

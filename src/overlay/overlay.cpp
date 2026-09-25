@@ -13,12 +13,14 @@
 #include "settings/performance_settings.h"
 #include "settings/input_settings.h"
 #include "overlay/settings_window.h"
+#include "overlay/ui_state.h"
 
 #include <d3d9.h>
 
 #include <algorithm>
 #include <atomic>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -59,6 +61,7 @@ std::atomic_bool g_navigationFocusRequested{false};
 std::atomic_bool g_centerPanelRequested{false};
 bool g_mainPanelVisible = false;
 float g_uiScale = 1.0f;
+std::optional<ui::state::WindowGeometry> g_initialGeometry;
 std::mutex g_textNotificationMutex;
 std::string g_textNotification;
 ULONGLONG g_textNotificationExpires{};
@@ -93,13 +96,15 @@ bool Initialize(IDirect3DDevice9* device) {
         return false;
     }
     ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = nullptr;
+    io.IniFilename = ui::state::ImGuiIniPath();
     io.LogFilename = nullptr;
     io.MouseDrawCursor = false;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     g_uiScale = style::ResolveUiScale(g_window);
+    g_initialGeometry = ui::state::SavedWindowGeometry(g_uiScale);
     style::ConfigureFonts(io, g_uiScale);
     style::ConfigureStyle(g_uiScale);
+    ui::RestoreSettingsWindowState();
     if (!ImGui_ImplWin32_Init(g_window)) {
         ImGui::DestroyContext();
         if (ShouldLogInitializationFailure(
@@ -157,6 +162,7 @@ void ToggleIfRequested() {
     if (!open) {
         std::scoped_lock contextLock(g_contextMutex);
         ui::FinishSettingsEdits();
+        ui::state::SaveObservedWindowGeometry();
     }
     g_open.store(open, std::memory_order_relaxed);
     notifications::sounds::PlayMenuTransition(open);
@@ -265,15 +271,20 @@ void DrawPanelWindow() {
     const ImVec2 preferred{760.0f * g_uiScale, 540.0f * g_uiScale};
     const ImVec2 initial{std::min(preferred.x, display.x),
                          std::min(preferred.y, display.y)};
+    const auto& saved = g_initialGeometry;
     const ImVec2 minimum{std::min(680.0f * g_uiScale, display.x),
                          std::min(360.0f * g_uiScale, display.y)};
-    ImGui::SetNextWindowSize(initial, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(
+        saved ? saved->size : initial,
+        saved ? ImGuiCond_Once : ImGuiCond_FirstUseEver);
     const bool centerRequested = g_centerPanelRequested.exchange(
         false, std::memory_order_acq_rel);
     if (centerRequested) {
         ImGui::SetNextWindowPos(
             ImVec2(display.x * 0.5f, display.y * 0.5f),
             ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    } else if (saved) {
+        ImGui::SetNextWindowPos(saved->position, ImGuiCond_Once);
     } else {
         ImGui::SetNextWindowPos(
             ImVec2(std::max(0.0f, (display.x - initial.x) * 0.5f),
@@ -292,9 +303,12 @@ void DrawPanelWindow() {
     if (requestNavigationFocus) ImGui::SetNavCursorVisible(true);
     if (drawContents) ui::DrawSettingsWindow(g_window);
     ClampCurrentWindow();
+    ui::state::ObserveWindowGeometry(
+        ImGui::GetWindowPos(), ImGui::GetWindowSize(), g_uiScale);
     ImGui::End();
     if (!g_mainPanelVisible) {
         ui::FinishSettingsEdits();
+        ui::state::SaveObservedWindowGeometry();
         if (g_open.exchange(false, std::memory_order_acq_rel)) {
             notifications::sounds::PlayMenuTransition(false);
         }
@@ -374,6 +388,7 @@ bool CapturesControllerInput() {
 void CloseForFocusLoss() {
     input::overlay_gamepad::ClearCapture();
     g_navigationFocusRequested.store(false, std::memory_order_release);
+    ui::state::SaveObservedWindowGeometry();
     (void)g_open.exchange(false, std::memory_order_relaxed);
 }
 
@@ -387,6 +402,7 @@ void PrepareForApplicationClose() {
                current, deadline, std::memory_order_release,
                std::memory_order_relaxed)) {}
 
+    ui::state::SaveObservedWindowGeometry();
     (void)g_open.exchange(false, std::memory_order_acq_rel);
     input::overlay_gamepad::ClearCapture();
     g_navigationFocusRequested.store(false, std::memory_order_release);
@@ -478,6 +494,7 @@ void DetachDevice(IDirect3DDevice9* device) {
     std::scoped_lock contextLock(g_contextMutex);
     if (!g_imguiReady || g_device != device) return;
     ui::FinishSettingsEdits();
+    ui::state::SaveObservedWindowGeometry();
 
     // Mark detached before ImGui's Release re-enters the hook, avoiding a second detach
     g_imguiReady = false;

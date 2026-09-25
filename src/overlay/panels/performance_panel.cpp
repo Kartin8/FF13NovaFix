@@ -4,6 +4,7 @@
 #include "settings/graphics_settings.h"
 #include "settings/performance_settings.h"
 #include "overlay/panels/settings_widgets.h"
+#include "overlay/ui_state.h"
 
 #include "imgui.h"
 
@@ -131,8 +132,9 @@ void FinishPerformanceEdit() {
 
 void DrawPerformancePanel() {
     EnsureSettings();
+    const bool lr = IsLightningReturns();
     if (widgets::BeginSettingsTable("##PerformanceSettings")) {
-        if (!IsLightningReturns()) {
+        if (!lr) {
             widgets::SettingRow("Frame rate");
             DrawFrameRate();
             if (g_customRate) {
@@ -141,7 +143,7 @@ void DrawPerformancePanel() {
             }
         }
 
-        if (!IsLightningReturns()) {
+        if (!lr) {
             widgets::SettingRow("VSync");
             int vsync = static_cast<int>(g_settings.vsyncMode);
             if (ImGui::Combo("##VSync", &vsync, kVSyncLabels, static_cast<int>(std::size(kVSyncLabels)))) {
@@ -153,13 +155,11 @@ void DrawPerformancePanel() {
         const bool hasHighFpsCorrectness =
             game::Supports(game::Capability::HighFpsFacialTiming) ||
             game::CurrentProfile().title == game::Title::FinalFantasyXIII2;
-        if (hasHighFpsCorrectness &&
-            (IsLightningReturns() || g_settings.frameRateLimit == 0 ||
+        if (hasHighFpsCorrectness && !lr &&
+            (g_settings.frameRateLimit == 0 ||
              g_settings.frameRateLimit > 30)) {
             const bool xiii2 = game::CurrentProfile().title ==
                                game::Title::FinalFantasyXIII2;
-            const bool lr = game::CurrentProfile().title ==
-                            game::Title::LightningReturns;
             widgets::SettingRow(
                 lr ? "Facial animation timing" : "High-FPS timing fixes",
                 lr
@@ -177,7 +177,11 @@ void DrawPerformancePanel() {
     }
 
     ImGui::Spacing();
-    if (!ImGui::CollapsingHeader("Advanced")) return;
+    if (!lr &&
+        !state::CollapsingHeader(
+            "Advanced", L"PerformanceAdvanced")) {
+        return;
+    }
     if (widgets::BeginSettingsTable("##AdvancedPerformanceSettings")) {
         widgets::SettingRow(
             "Renderer",
@@ -228,6 +232,17 @@ void DrawPerformancePanel() {
         if (ImGui::Checkbox(
                 "##SchedulingStability", &g_settings.schedulingStability)) {
             SaveSettings();
+        }
+
+        if (lr && game::Supports(game::Capability::HighFpsFacialTiming)) {
+            widgets::SettingRow(
+                "Facial animation timing",
+                "Keeps facial morphs and smoothing correct above 60 FPS");
+            if (ImGui::Checkbox(
+                    "##HighFpsCorrectness",
+                    &g_settings.highFpsCorrectness)) {
+                SaveSettings();
+            }
         }
         widgets::EndSettingsTable();
     }

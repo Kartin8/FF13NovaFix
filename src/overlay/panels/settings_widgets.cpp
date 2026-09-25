@@ -34,11 +34,15 @@ void EndSettingsTable() {
     ImGui::EndTable();
 }
 
-void SettingRow(const char* label, const char* help) {
+void SettingRow(const char* label, const char* help, const char* note) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(label);
+    if (note && *note) {
+        ImGui::SameLine(0.0f, 6.0f);
+        ImGui::TextDisabled("%s", note);
+    }
     HelpMarker(help);
     ImGui::TableSetColumnIndex(1);
     ImGui::SetNextItemWidth(-1.0f);

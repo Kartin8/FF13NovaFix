@@ -250,6 +250,8 @@ void AppendInput(std::string& output) {
         names::kOverlayGamepadHotkey);
     AppendBoolean(output, "CenterOverlayOnOpen",
                   value.centerOverlayOnOpen);
+    AppendBoolean(output, "RememberOverlayState",
+                  value.rememberOverlayState);
     AppendLine(output);
 }
 

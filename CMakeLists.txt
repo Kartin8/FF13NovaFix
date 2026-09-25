@@ -200,6 +200,7 @@ set(NOVAFIX_SOURCES
     src/overlay/overlay.cpp
     src/overlay/overlay_style.cpp
     src/overlay/settings_window.cpp
+    src/overlay/ui_state.cpp
     src/patch/detour32.cpp
     src/patch/iat_hook.cpp
     src/patch/integrity_monitor.cpp
@@ -221,6 +222,7 @@ set(NOVAFIX_SOURCES
     src/overlay/panels/compatibility_panel.cpp
     src/overlay/panels/diagnostics_panel.cpp
     src/overlay/panels/input_panel.cpp
+    src/overlay/panels/other_panel.cpp
     src/overlay/panels/patch_status_panel.cpp
     src/overlay/panels/performance_panel.cpp
     src/overlay/panels/plugin_panel.cpp
@@ -294,7 +296,7 @@ else()
 endif()
 
 target_link_libraries(d3d9 PRIVATE
-    bcrypt dwmapi dxguid ole32 user32 version windowscodecs winmm minhook)
+    bcrypt dwmapi dxguid ole32 shell32 user32 version windowscodecs winmm minhook)
 if(MSVC)
     target_link_options(d3d9 PRIVATE
         $<$<CONFIG:Release>:/OPT:REF>
