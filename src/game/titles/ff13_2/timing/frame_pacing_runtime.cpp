@@ -2,6 +2,7 @@
 
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
+#include "common/guarded_call.h"
 #include "game/core/game_profile.h"
 #include "game/core/image_view.h"
 #include "game/shared/timing/frame_pacing.h"
@@ -347,16 +348,33 @@ void __fastcall MovieOpenHook(
 
 bool IsMenuHighlightEffect(const void* effect) {
     constexpr std::size_t kResourceNameOffset = 252u;
-    const auto* bytes = static_cast<const std::byte*>(effect);
-    if (!bytes ||
-        !IsReadable(bytes + kResourceNameOffset, sizeof(const char*))) {
+    if (!effect) return false;
+
+    // The game keeps this effect alive for the whole call.
+    // Fault-guard the two pointer reads, but avoid two VirtualQuery calls for every effect on every frame.
+#if defined(_MSC_VER)
+    __try {
+        const auto* bytes = static_cast<const std::byte*>(effect);
+        const char* resourceName = *reinterpret_cast<const char* const*>(
+            bytes + kResourceNameOffset);
+        return resourceName &&
+            std::memcmp(resourceName, kMenuHighlightResource,
+                        sizeof(kMenuHighlightResource)) == 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
-    const char* resourceName = *reinterpret_cast<const char* const*>(
-        bytes + kResourceNameOffset);
-    return IsReadable(resourceName, sizeof(kMenuHighlightResource)) &&
-        std::memcmp(resourceName, kMenuHighlightResource,
-                    sizeof(kMenuHighlightResource)) == 0;
+#else
+    bool match{};
+    const bool readable = guarded_call::Run([&] {
+        const auto* bytes = static_cast<const std::byte*>(effect);
+        const char* resourceName = *reinterpret_cast<const char* const*>(
+            bytes + kResourceNameOffset);
+        match = resourceName &&
+            std::memcmp(resourceName, kMenuHighlightResource,
+                        sizeof(kMenuHighlightResource)) == 0;
+    });
+    return readable && match;
+#endif
 }
 
 int __fastcall VeffUpdateHook(
@@ -365,14 +383,17 @@ int __fastcall VeffUpdateHook(
         hookTiming, "hook.ff13-2.veff-update-total");
     VeffUpdateFn original = g_originalVeffUpdate;
     if (!original) return 0;
-    if (IsMenuHighlightEffect(effect)) {
+    const std::uint32_t wallTicks =
+        frame_pacing::state::appliedPresentationDeltaTicks.load(
+            std::memory_order_acquire);
+    const bool highRefreshActive =
+        frame_pacing::state::highRefreshPresentationActive.load(
+            std::memory_order_acquire);
+    if (highRefreshActive && wallTicks != 0u &&
+        IsMenuHighlightEffect(effect)) {
         deltaMilliseconds =
             xiii2_frame_timing_policy::Xiii2VeffDeltaMilliseconds(
-            deltaMilliseconds,
-            frame_pacing::state::appliedPresentationDeltaTicks.load(
-                std::memory_order_acquire),
-            frame_pacing::state::highRefreshPresentationActive.load(
-                std::memory_order_acquire));
+                deltaMilliseconds, wallTicks, highRefreshActive);
     }
     return original(effect, deltaMilliseconds);
 }

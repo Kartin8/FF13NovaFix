@@ -3,6 +3,7 @@
 
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
+#include "common/guarded_call.h"
 #include "game/core/game_profile.h"
 #include "game/core/image_view.h"
 #include "patch/detour32.h"
@@ -102,6 +103,24 @@ bool ReadField(const void* object, std::size_t offset, T& value) {
     return true;
 }
 
+template <typename T>
+bool ReadLiveField(const void* object, std::size_t offset, T& value) {
+    if (!object) return false;
+    const auto* address = static_cast<const std::byte*>(object) + offset;
+#if defined(_MSC_VER)
+    __try {
+        std::memcpy(&value, address, sizeof(T));
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+#else
+    return guarded_call::Run([&] {
+        std::memcpy(&value, address, sizeof(T));
+    });
+#endif
+}
+
 bool CopyFixedName(const void* object, std::size_t offset,
                    char (&output)[17]) {
     std::memset(output, 0, sizeof(output));
@@ -133,8 +152,9 @@ bool IsBoundTitan(const void* actor) {
 bool ReadFrameMilliseconds(std::int32_t& milliseconds) {
     void* manager{};
     return g_frameManagerGlobal &&
-        ReadField(g_frameManagerGlobal, 0u, manager) && manager &&
-        ReadField(manager, 0x4Cu, milliseconds) && milliseconds >= 0;
+        ReadLiveField(g_frameManagerGlobal, 0u, manager) && manager &&
+        ReadLiveField(manager, 0x4Cu, milliseconds) &&
+        milliseconds >= 0;
 }
 
 bool ReadTitanEffectiveDelta(void* actor, std::int32_t milliseconds,
@@ -349,8 +369,9 @@ unsigned int __fastcall TitanMoveControlUpdateHook(
     std::uint32_t packedState{};
     std::uint32_t options{};
     const bool hasPackedState = titan &&
-        ReadField(control, 0x214u, packedState);
-    const bool hasOptions = titan && ReadField(control, 0x180u, options);
+        ReadLiveField(control, 0x214u, packedState);
+    const bool hasOptions = titan &&
+        ReadLiveField(control, 0x180u, options);
     const bool highFps = titan && UpdateTitanHighFpsGate();
     behaviorScope = highFps && hasPackedState && hasOptions &&
         (packedState & 0xFFu) == 3u &&

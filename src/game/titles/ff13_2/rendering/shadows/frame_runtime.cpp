@@ -39,6 +39,12 @@ using xiii2_shadow_resources::CachedSnapshotMatches;
 using xiii2_shadow_resources::ReadSnapshot;
 using xiii2_shadow_resources::Snapshot;
 
+enum class SnapshotRefreshResult {
+    Ready,
+    InvalidResources,
+    FarMatrixNotWritable,
+};
+
 template <typename T>
 T ReadTrustedField(const void* object, std::ptrdiff_t offset) {
     T value{};
@@ -48,17 +54,29 @@ T ReadTrustedField(const void* object, std::ptrdiff_t offset) {
     return value;
 }
 
-bool RefreshCachedSnapshot(void* renderer) {
+SnapshotRefreshResult RefreshCachedSnapshot(void* renderer) {
     Snapshot refreshed{};
     if (!ReadSnapshot(renderer, g_deviceSlot, refreshed) ||
         !refreshed.fullyNative ||
         !AliasFieldsWritable(refreshed)) {
         g_cacheValid = false;
-        return false;
+        return SnapshotRefreshResult::InvalidResources;
+    }
+    // The matrix lives in the same renderer as the cached resources. Recheck
+    // its protection when that renderer or its resources change, not once per
+    // shadow pass.
+    if (xiii2_shadow_atlas_policy::UsesReducedFarCascade(refreshed.layout)) {
+        if (!IsWritable(
+                static_cast<std::byte*>(renderer) +
+                    kRendererFarReceiverMatrixOffset,
+                sizeof(float) * 16u)) {
+            g_cacheValid = false;
+            return SnapshotRefreshResult::FarMatrixNotWritable;
+        }
     }
     g_cachedSnapshot = refreshed;
     g_cacheValid = true;
-    return true;
+    return SnapshotRefreshResult::Ready;
 }
 
 bool PrepareFrame(
@@ -68,22 +86,21 @@ bool PrepareFrame(
         !g_enabled.load(std::memory_order_acquire)) {
         return false;
     }
-    if (!g_cacheValid ||
-        !CachedSnapshotMatches(renderer, g_deviceSlot, g_cachedSnapshot)) {
-        if (!RefreshCachedSnapshot(renderer)) {
-            FailClosed("shadow owner/device validation failed");
+    bool cacheMatches = g_cacheValid;
+    if (cacheMatches) {
+        cacheMatches = CachedSnapshotMatches(
+            renderer, g_deviceSlot, g_cachedSnapshot);
+    }
+    if (!cacheMatches) {
+        const SnapshotRefreshResult result = RefreshCachedSnapshot(renderer);
+        if (result != SnapshotRefreshResult::Ready) {
+            FailClosed(result == SnapshotRefreshResult::FarMatrixNotWritable
+                           ? "far receiver matrix is not writable"
+                           : "shadow owner/device validation failed");
             return false;
         }
     }
     snapshot = g_cachedSnapshot;
-    if (xiii2_shadow_atlas_policy::UsesReducedFarCascade(snapshot.layout) &&
-        !IsWritable(
-            static_cast<std::byte*>(renderer) +
-                kRendererFarReceiverMatrixOffset,
-            sizeof(float) * 16u)) {
-        FailClosed("far receiver matrix is not writable");
-        return false;
-    }
     if (!BeginCascadeAlias(snapshot, transaction)) {
         FailClosed("cached alias transaction could not begin");
         return false;
