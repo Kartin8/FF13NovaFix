@@ -41,7 +41,7 @@ struct PerformanceSettings {
     bool startupSound{true};
     bool menuSounds{true};
     LoadedModulesNotificationMode loadedModulesNotificationMode{
-        LoadedModulesNotificationMode::WhenChanged};
+        LoadedModulesNotificationMode::EveryLaunch};
     D3D9Backend d3d9Backend{D3D9Backend::Automatic};
 };
 

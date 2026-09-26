@@ -71,8 +71,7 @@ constexpr int kNameFieldState = 5;
 constexpr int kSchemaEditorState = 7;
 constexpr int kMaximumStyleCount = 9;
 constexpr int kFirstEquipmentSelection = 0;
-constexpr int kFirstAbilitySelection = 6;
-constexpr int kLastAbilitySelection = 9;
+constexpr int kLastEquipmentSelection = 9;
 constexpr int kNoEquipmentSelection = 10;
 
 using StyleMenuUpdateFn = void (__thiscall*)(void*, float);
@@ -295,8 +294,7 @@ void __fastcall StyleMenuNavigateHook(
     const bool movingUpFromTop =
         !direction && selection == kFirstEquipmentSelection;
     const bool movingDownFromBottom =
-        direction && selection >= kFirstAbilitySelection &&
-        selection <= kLastAbilitySelection &&
+        direction && selection == kLastEquipmentSelection &&
         !Field<void*>(menu, kOptionalBottomWidgetOffset);
     if (movingUpFromTop || movingDownFromBottom) {
         if (SelectNameField(menu, guideInput)) return;
