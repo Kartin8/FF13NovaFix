@@ -391,12 +391,14 @@ void InstallWin32Hooks() {
                           reinterpret_cast<void**>(&g_gamePeekMessageW));
 }
 
-void FeedOverlayMouse() {
+void FeedOverlayMouse(float scaleX, float scaleY) {
     ImGuiIO& io = ImGui::GetIO();
     POINT cursor{};
     const HWND gameWindow = overlay::PresentationWindow();
     if (GetCursorPos(&cursor) && gameWindow && ScreenToClient(gameWindow, &cursor)) {
-        io.AddMousePosEvent(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
+        io.AddMousePosEvent(
+            static_cast<float>(cursor.x) * scaleX,
+            static_cast<float>(cursor.y) * scaleY);
     }
 
     const bool left = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;

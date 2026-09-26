@@ -97,8 +97,8 @@ static void ImGui_ImplDX9_SetupRenderState(ImDrawData* draw_data)
     // Setup viewport
     D3DVIEWPORT9 vp;
     vp.X = vp.Y = 0;
-    vp.Width = (DWORD)draw_data->DisplaySize.x;
-    vp.Height = (DWORD)draw_data->DisplaySize.y;
+    vp.Width = (DWORD)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
+    vp.Height = (DWORD)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
     vp.MinZ = 0.0f;
     vp.MaxZ = 1.0f;
 
@@ -283,8 +283,10 @@ void ImGui_ImplDX9_RenderDrawData(ImDrawData* draw_data)
             else
             {
                 // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min(pcmd->ClipRect.x - clip_off.x, pcmd->ClipRect.y - clip_off.y);
-                ImVec2 clip_max(pcmd->ClipRect.z - clip_off.x, pcmd->ClipRect.w - clip_off.y);
+                ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * draw_data->FramebufferScale.x,
+                                (pcmd->ClipRect.y - clip_off.y) * draw_data->FramebufferScale.y);
+                ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * draw_data->FramebufferScale.x,
+                                (pcmd->ClipRect.w - clip_off.y) * draw_data->FramebufferScale.y);
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                     continue;
 

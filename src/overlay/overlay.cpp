@@ -3,6 +3,7 @@
 
 #include "diagnostics/log.h"
 #include "compat/compatibility.h"
+#include "display/aspect_runtime.h"
 #include "game/core/game_profile.h"
 #include "game/shared/ui/scissor_fix.h"
 #include "notifications/sounds.h"
@@ -317,9 +318,33 @@ void DrawPanelWindow() {
 
 void DrawOverlay(bool drawPanel, bool drawCounter,
                  std::string_view textNotification) {
-    if (drawPanel) input::FeedOverlayMouse();
     ImGui_ImplDX9_NewFrame();
     ImGui_ImplWin32_NewFrame();
+    ImGuiIO& io = ImGui::GetIO();
+    const auto framebuffer = display::CurrentAspectRatio();
+    float mouseScaleX = 1.0f;
+    float mouseScaleY = 1.0f;
+    if (framebuffer.valid && framebuffer.width >= 640u &&
+        framebuffer.height >= 480u && io.DisplaySize.x > 0.0f &&
+        io.DisplaySize.y > 0.0f) {
+        const float scaleX =
+            static_cast<float>(framebuffer.width) / io.DisplaySize.x;
+        const float scaleY =
+            static_cast<float>(framebuffer.height) / io.DisplaySize.y;
+        if (scaleX > 1.0f || scaleY > 1.0f) {
+            io.DisplaySize = ImVec2(
+                static_cast<float>(framebuffer.width),
+                static_cast<float>(framebuffer.height));
+            io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+            mouseScaleX = scaleX;
+            mouseScaleY = scaleY;
+        } else {
+            io.DisplayFramebufferScale = ImVec2(scaleX, scaleY);
+        }
+    } else {
+        io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    }
+    if (drawPanel) input::FeedOverlayMouse(mouseScaleX, mouseScaleY);
     if (drawPanel) input::overlay_gamepad::FeedNavigation();
     ImGui::NewFrame();
 
