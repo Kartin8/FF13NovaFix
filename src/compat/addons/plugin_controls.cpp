@@ -120,7 +120,7 @@ FARPROC NamedExport(HMODULE module, const char* name,
                     const char* decoratedName) {
     if (!module) return nullptr;
     FARPROC query = GetProcAddress(module, name);
-    // Some x86 toolchains keep the C symbol's leading underscore
+    // Accept the leading underscore used by some x86 toolchains.
     if (!query) query = GetProcAddress(module, decoratedName);
     return query;
 }
@@ -130,12 +130,12 @@ void MarkCallbackFailed(const Plugin& plugin, const Control& control,
     if (control.callbackFailed) return;
     control.callbackFailed = true;
     if (exceptionCode) {
-        Log("Addon UI callback disabled: addon=%s control=%s operation=%s "
-            "exception=0x%08lX (the DLL remains loaded)",
+        LogWarning("Add-on UI callback disabled: addon=%s control=%s operation=%s "
+            "exception=0x%08lX",
             plugin.id.c_str(), control.id.c_str(), operation, exceptionCode);
     } else {
-        Log("Addon UI callback disabled: addon=%s control=%s operation=%s "
-            "reason=invalid value (the DLL remains loaded)",
+        LogWarning("Add-on UI callback disabled: addon=%s control=%s operation=%s "
+            "reason=invalid value",
             plugin.id.c_str(), control.id.c_str(), operation);
     }
 }
@@ -159,8 +159,8 @@ void MarkMenuCallbackFailed(const Plugin& plugin, const NativeMenuItem& item,
                             const char* operation, DWORD exceptionCode) {
     if (item.callbackFailed) return;
     item.callbackFailed = true;
-    Log("Addon native menu callback disabled: addon=%s item=%s operation=%s "
-        "exception=0x%08lX (the DLL remains loaded)", plugin.id.c_str(),
+    LogWarning("Add-on native menu callback disabled: addon=%s item=%s operation=%s "
+        "exception=0x%08lX", plugin.id.c_str(),
         item.id.c_str(), operation, exceptionCode);
 }
 
@@ -170,7 +170,7 @@ void ConfigureHost(NovaFixPluginGame game, const char* gameName,
                    const char* novaFixVersion,
                    NovaFixPluginShowNativeMessageFn showNativeMessage,
                    NovaFixPluginShowNativeMessageExFn showNativeMessageEx) {
-    // Query may retain these pointers, so keep our own copies
+    // Query may retain these pointers.
     g_hostGameName = gameName && *gameName ? gameName : "Unknown application";
     g_hostVersion = novaFixVersion && *novaFixVersion ? novaFixVersion : "unknown";
     g_host.structSize = sizeof(g_host);
@@ -193,8 +193,8 @@ bool Discover(HMODULE module, std::wstring_view source) {
     if (!TryQuery(reinterpret_cast<NovaFixPluginQueryFn>(queryAddress),
                   &descriptorAddress, &exceptionCode)) {
         const std::wstring sourceText(source);
-        LogWarning("Addon UI query failed: source=%ls exception=0x%08lX "
-            "(the DLL remains loaded)", sourceText.c_str(), exceptionCode);
+        LogWarning("Add-on UI query failed: source=%ls exception=0x%08lX",
+            sourceText.c_str(), exceptionCode);
         return false;
     }
     if (!descriptorAddress) return false;
@@ -219,8 +219,6 @@ bool Discover(HMODULE module, std::wstring_view source) {
             return item.module == module ||
                 plugin_descriptor::SameId(item.id, plugin.id);
         })) {
-        Log("Add-on API already registered: source=%ls id=%s",
-            plugin.source.c_str(), plugin.id.c_str());
         return false;
     }
 

@@ -289,9 +289,7 @@ int __fastcall TextLabelRebuildHook(void* label, void*, const void* source,
     TextLabelRebuildFn original = g_textLabelRebuild;
     if (!original) return 0;
 
-    // Capture before the native parser sees the buffer. Complex dialog text
-    // contains inline layout/color controls, and rebuilding from the parser's
-    // post-call view can preserve partially consumed control state
+    // Capture inline controls before the native parser consumes them.
     std::array<std::byte, kMaximumCapturedSourceBytes> sourceCopy{};
     std::uint16_t byteCount{};
     bool sourceCopyReady = false;
@@ -407,7 +405,7 @@ bool CreateAndRegisterSnapshotHudGuide(void* camera) {
     const bool hasCaptureSlot = g_guideCount < g_guides.size();
     ReleaseSRWLockShared(&g_guideLock);
     if (!hasCaptureSlot) {
-        Log("LR standalone Snapshot HUD guide rejected: persistent-guide registry is full");
+        LogWarning("LR standalone Snapshot HUD guide rejected: persistent-guide registry is full");
         return false;
     }
 
@@ -436,7 +434,7 @@ bool CreateAndRegisterSnapshotHudGuide(void* camera) {
     }
     ReleaseSRWLockExclusive(&g_guideLock);
     if (!reserved) {
-        Log("LR standalone Snapshot HUD guide rejected: persistent-guide slot disappeared");
+        LogWarning("LR standalone Snapshot HUD guide rejected: persistent-guide slot disappeared");
         return false;
     }
 
@@ -473,25 +471,15 @@ int __fastcall SnsCameraModeConstructorHook(void* camera, void*, int owner,
     std::scoped_lock nativeLock(g_nativeGuideMutex);
     ForgetPreviousSnapshotGuides();
 
-    const ULONGLONG originalStart = GetTickCount64();
     const int result = original(camera, owner, listener);
-    const ULONGLONG originalElapsed = GetTickCount64() - originalStart;
-    const ULONGLONG extensionStart = GetTickCount64();
     (void)CreateAndRegisterSnapshotHudGuide(camera);
-    const ULONGLONG extensionElapsed = GetTickCount64() - extensionStart;
-    if (originalElapsed >= 50u || extensionElapsed >= 10u) {
-        Log("LR Snapshot camera construction timing: native=%llums HUD-guide=%llums",
-            static_cast<unsigned long long>(originalElapsed),
-            static_cast<unsigned long long>(extensionElapsed));
-    }
     return result;
 }
 
 int __fastcall TextLabelDestructorHook(void* label, void*, int destroyFlags) {
     hook_profiler::Scope totalTiming(
         hook_profiler::Point::LrPromptLabelDestroyOwn);
-    // Keep this recursive lock alive across the native destructor call. Its
-    // lifetime is part of the original hook's synchronization contract
+    // The recursive lock covers the native destructor call.
     std::scoped_lock nativeLock(g_nativeGuideMutex);
     AcquireSRWLockExclusive(&g_guideLock);
     if (CapturedGuide* captured = FindGuideLocked(label)) {

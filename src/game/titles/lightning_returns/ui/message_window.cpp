@@ -179,7 +179,7 @@ void* Open(const char* message, const char* purpose, bool logFailure,
         api.createSystemMessage(message, nullptr, 0, 0);
     if (!product || !patch::memory::IsReadable(product, 60u)) {
         if (logFailure) {
-            Log("LR %s native status product is unavailable",
+            LogWarning("LR %s native status product is unavailable",
                 purpose);
         }
         return nullptr;
@@ -195,7 +195,7 @@ void* Open(const char* message, const char* purpose, bool logFailure,
     if (!vtable ||
         !patch::memory::IsReadable(vtable, 80u * sizeof(void*))) {
         if (logFailure) {
-            Log("LR %s native status vtable is unavailable",
+            LogWarning("LR %s native status vtable is unavailable",
                 purpose);
         }
         return nullptr;
@@ -205,7 +205,7 @@ void* Open(const char* message, const char* purpose, bool logFailure,
     const auto open = reinterpret_cast<OpenGuiProductFn>(vtable[79]);
     if (!open) {
         if (logFailure) {
-            Log("LR %s native status opener is unavailable",
+            LogWarning("LR %s native status opener is unavailable",
                 purpose);
         }
         return nullptr;

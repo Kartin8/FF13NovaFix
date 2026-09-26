@@ -20,9 +20,8 @@ struct Resolution {
     ResolutionKind kind{ResolutionKind::Rejected};
 };
 
-// XIII-2 sometimes passes a Crystal Tools wrapper and sometimes a native
-// IDirect3D9 resource to the same helper. Resolve either representation without
-// reading beyond the allocation that owns the incoming pointer
+// This helper can receive either a Crystal Tools wrapper or a raw IDirect3D9 resource
+// Resolve both without scanning past the incoming allocation
 Resolution ResolveResource(void* candidate, ImageRange gameImage) noexcept;
 
 } // namespace novafix::game::xiii2_resource_unwrap

@@ -7,8 +7,7 @@
 namespace novafix::game {
 
 ReleaseChannel DetectReleaseChannel() {
-    // Wine/Proton games are desktop installs. Avoid probing an optional package
-    // API that older compatibility layers may only expose as a stub
+    // Wine/Proton uses desktop releases and may stub package APIs.
     if (compat::IsWine()) return ReleaseChannel::Unknown;
 
     using GetCurrentPackageFullNameFn = LONG (WINAPI*)(UINT32*, PWSTR);

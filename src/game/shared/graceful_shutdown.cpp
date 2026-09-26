@@ -31,15 +31,13 @@ bool Matches(std::span<const std::byte> code,
            std::equal(bytes.begin(), bytes.end(), code.begin());
 }
 
-// XIII Steam 2014 White.GameMain global and virtual RequestExit slot. These
-// values are shared by the known original and Nova/community layouts. Every
-// pointer and the function bytes are checked at runtime before the call
+// XIII Steam 2014: White.GameMain pointer and virtual RequestExit slot.
+// These values match the known original and Nova/community layouts. Validate the pointers and function bytes before calling.
 constexpr std::uintptr_t kFf13GameMainSlotRva = 0x0243E35Cu;
 constexpr std::size_t kFf13RequestExitVtableIndex = 35;
 
-// XIII-2's WM_CLOSE path confirms first, then calls RequestExit. Cache the
-// application object there so Restart can request the same orderly shutdown
-// without reopening the confirmation dialog.
+// XIII-2 confirms WM_CLOSE before calling RequestExit.
+// Cache the app object there so Restart can use the same shutdown path without reopening the prompt.
 constexpr std::uintptr_t kFf13_2MessageHandlerRva = 0x008046B0u;
 constexpr std::uintptr_t kFf13_2RequestExitRva = 0x00803B00u;
 constexpr std::array<std::uint8_t, 8> kFf13_2MessageHandlerPrefix{

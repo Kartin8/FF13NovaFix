@@ -59,7 +59,7 @@ bool ReadBoolean(const std::wstring& path, const wchar_t* section,
     if (_wcsicmp(text, L"Off") == 0) return false;
     if (_wcsicmp(text, L"On") == 0) return true;
 
-    // Temporary compatibility with numeric values written by older releases
+    // Accept legacy numeric booleans.
     unsigned numeric{};
     if (ParseUnsigned(text, &numeric) && numeric <= 1u) {
         return numeric != 0u;
@@ -77,7 +77,7 @@ unsigned ReadChoice(
         if (_wcsicmp(text, names[index]) == 0) return index;
     }
 
-    // Temporary compatibility with numeric values written by older releases
+    // Accept legacy numeric choices.
     unsigned numeric{};
     if (!ParseUnsigned(text, &numeric)) return fallback;
     return numeric;

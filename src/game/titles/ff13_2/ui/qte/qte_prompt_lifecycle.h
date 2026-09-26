@@ -21,10 +21,10 @@ bool HasExpectedContract(const ImageView& image);
 bool InstallLifecycle(const ImageView& image,
                       const NativeFunctions& functions);
 
-// Freeze the epoch if any live owner cannot join an all-owner switch
+// Keep the current QTE mode if any live bundle can't switch with the rest.
 input::NativePromptMode ResolveMode(input::NativePromptMode requested);
 
-// Game-thread only: switch every validated live QTE bundle together
+// Game thread only. Switch all validated live QTE bundles in one pass.
 input::NativePromptMode ApplyRequestedMode(
     input::NativePromptMode requested);
 

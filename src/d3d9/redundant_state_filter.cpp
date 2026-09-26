@@ -1,7 +1,5 @@
 #include "d3d9/redundant_state_filter.h"
 
-#include "diagnostics/log.h"
-
 #include <windows.h>
 
 #include <algorithm>
@@ -22,24 +20,11 @@ constexpr std::size_t kTextureStageStateCount = 33u;
 constexpr std::size_t kPixelConstantRegisterCount = 224u;
 constexpr std::size_t kVertexConstantRegisterCount = 256u;
 constexpr std::size_t kStreamCount = 16u;
-constexpr unsigned kSummaryFrameCount = 1800u;
 
 struct StreamState {
     IDirect3DVertexBuffer9* buffer{};
     UINT offset{};
     UINT stride{};
-};
-
-struct SkipCounts {
-    std::uint64_t sampler{};
-    std::uint64_t render{};
-    std::uint64_t texture{};
-    std::uint64_t textureStage{};
-    std::uint64_t pixelConstants{};
-    std::uint64_t pixelShader{};
-    std::uint64_t vertexConstants{};
-    std::uint64_t vertexShader{};
-    std::uint64_t stream{};
 };
 
 struct StateCache {
@@ -68,8 +53,6 @@ struct StateCache {
     bool vertexShaderValid{};
     std::array<StreamState, kStreamCount> streams{};
     std::array<bool, kStreamCount> streamValid{};
-    SkipCounts skipped{};
-    unsigned frames{};
 };
 
 std::atomic_bool g_enabled{false};
@@ -148,32 +131,11 @@ void CommitConstants(std::array<float, RegisterCount * 4u>& stored,
     std::fill_n(valid.data() + startRegister, vectorCount, true);
 }
 
-void LogSummary(StateCache& cache) {
-    if (cache.frames < kSummaryFrameCount) return;
-    const SkipCounts& value = cache.skipped;
-    Log("XIII-2 redundant D3D9 state filter: last %u frames skipped sampler=%llu render=%llu texture=%llu texture-stage=%llu pixel-constants=%llu pixel-shader=%llu vertex-constants=%llu vertex-shader=%llu stream=%llu",
-        cache.frames, static_cast<unsigned long long>(value.sampler),
-        static_cast<unsigned long long>(value.render),
-        static_cast<unsigned long long>(value.texture),
-        static_cast<unsigned long long>(value.textureStage),
-        static_cast<unsigned long long>(value.pixelConstants),
-        static_cast<unsigned long long>(value.pixelShader),
-        static_cast<unsigned long long>(value.vertexConstants),
-        static_cast<unsigned long long>(value.vertexShader),
-        static_cast<unsigned long long>(value.stream));
-    cache.skipped = {};
-    cache.frames = 0u;
-}
-
 } // namespace
 
 void Configure(bool enabled) {
-    const bool previous =
-        g_enabled.exchange(enabled, std::memory_order_acq_rel);
+    g_enabled.store(enabled, std::memory_order_release);
     if (!enabled) Invalidate();
-    if (previous != enabled) {
-        Log("XIII-2 redundant D3D9 state filter configured=%d", enabled);
-    }
 }
 
 void BeginFrame(IDirect3DDevice9* device) {
@@ -187,10 +149,7 @@ void BeginFrame(IDirect3DDevice9* device) {
         g_renderThread.store(thread, std::memory_order_release);
         g_generation.fetch_add(1u, std::memory_order_acq_rel);
     }
-    StateCache* cache = ActiveCache(device);
-    if (!cache) return;
-    ++cache->frames;
-    LogSummary(*cache);
+    ActiveCache(device);
 }
 
 void Invalidate(IDirect3DDevice9* device) {
@@ -224,7 +183,6 @@ bool SamplerState(IDirect3DDevice9* device, DWORD sampler,
         cache->samplers[sampler][state] != value) {
         return false;
     }
-    ++cache->skipped.sampler;
     return true;
 }
 
@@ -246,7 +204,6 @@ bool RenderState(IDirect3DDevice9* device, D3DRENDERSTATETYPE state,
     if (!cache || cache->recordingStateBlock || index >= kRenderStateCount ||
         !cache->renderStateValid[index] ||
         cache->renderStates[index] != value) return false;
-    ++cache->skipped.render;
     return true;
 }
 
@@ -267,7 +224,6 @@ bool Texture(IDirect3DDevice9* device, DWORD stage,
         !cache->textureValid[stage] || cache->textures[stage] != texture) {
         return false;
     }
-    ++cache->skipped.texture;
     return true;
 }
 
@@ -288,7 +244,6 @@ bool TextureStageState(IDirect3DDevice9* device, DWORD stage,
         state >= kTextureStageStateCount ||
         !cache->textureStageStateValid[stage][state] ||
         cache->textureStageStates[stage][state] != value) return false;
-    ++cache->skipped.textureStage;
     return true;
 }
 
@@ -309,7 +264,6 @@ bool PixelShaderConstantF(IDirect3DDevice9* device, UINT startRegister,
     if (!cache || cache->recordingStateBlock ||
         !ConstantsMatch(cache->pixelConstants, cache->pixelConstantValid,
                         startRegister, values, vectorCount)) return false;
-    ++cache->skipped.pixelConstants;
     return true;
 }
 
@@ -326,7 +280,6 @@ bool PixelShader(IDirect3DDevice9* device, IDirect3DPixelShader9* shader) {
     StateCache* cache = ActiveCache(device);
     if (!cache || cache->recordingStateBlock || !cache->pixelShaderValid ||
         cache->pixelShader != shader) return false;
-    ++cache->skipped.pixelShader;
     return true;
 }
 
@@ -345,7 +298,6 @@ bool VertexShaderConstantF(IDirect3DDevice9* device, UINT startRegister,
     if (!cache || cache->recordingStateBlock ||
         !ConstantsMatch(cache->vertexConstants, cache->vertexConstantValid,
                         startRegister, values, vectorCount)) return false;
-    ++cache->skipped.vertexConstants;
     return true;
 }
 
@@ -363,7 +315,6 @@ bool VertexShader(IDirect3DDevice9* device, IDirect3DVertexShader9* shader) {
     StateCache* cache = ActiveCache(device);
     if (!cache || cache->recordingStateBlock || !cache->vertexShaderValid ||
         cache->vertexShader != shader) return false;
-    ++cache->skipped.vertexShader;
     return true;
 }
 
@@ -384,7 +335,6 @@ bool StreamSource(IDirect3DDevice9* device, UINT stream,
     const StreamState& previous = cache->streams[stream];
     if (previous.buffer != buffer || previous.offset != offset ||
         previous.stride != stride) return false;
-    ++cache->skipped.stream;
     return true;
 }
 

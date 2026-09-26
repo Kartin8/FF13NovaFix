@@ -57,10 +57,9 @@ std::optional<std::int64_t> FrameSchedule::NextDeadlineImpl(
         const double missedPeriods =
             std::floor((current - nextDeadline_) / period) + 1.0;
         nextDeadline_ += missedPeriods * period;
-        // The frame workload has already exceeded the target interval.  Keep
-        // the absolute phase for recovery, but never add another wait here:
-        // doing so quantizes sub-target performance down to a lower divisor
-        // (for example, ~52 FPS to ~45 FPS against a 144-Hz grid)
+        // We already missed this frame's target. Keep the absolute phase so later frames can recover,
+        // but don't wait again here or sub-target performance can fall to a lower divisor
+        // (for example, ~52 FPS -> ~45 FPS on a 144 Hz grid).
         return std::nullopt;
     }
 

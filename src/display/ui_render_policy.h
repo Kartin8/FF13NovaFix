@@ -15,7 +15,7 @@ struct VertexBufferRequest {
     bool sharedHandle{};
 };
 
-// Match the full XIII/XIII-2 GUI allocation contract, not just its byte size
+// Identify the XIII/XIII-2 GUI vertex buffer by its full allocation parameters, not size alone.
 bool IsNativeUiVertexBuffer(const VertexBufferRequest& request);
 
 using ScreenQuad = std::array<float, 20>;

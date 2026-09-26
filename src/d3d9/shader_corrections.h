@@ -30,9 +30,8 @@ enum class OpaqueShadowMode : std::uint32_t {
     FixedFunctionDepth,
 };
 
-// Resolves original Crystal Tools bytecode before IDirect3D9 creates a shader
-// This avoids compiling both the original and replacement and keeps all
-// replacement work out of the per-draw SetPixelShader path
+// Resolve Crystal Tools bytecode before shader creation.
+// This avoids compiling both versions and keeps replacement work out of SetPixelShader.
 Resolution ResolveBytecode(const DWORD* original);
 void RecordCreation(const Resolution& resolution,
                     IDirect3DPixelShader9* created, HRESULT result);

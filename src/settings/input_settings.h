@@ -22,7 +22,7 @@ enum class OverlayHotkey : unsigned {
 
 enum class OverlayGamepadHotkey : unsigned {
     Disabled,
-    // Legacy values are retained so existing INI files can be migrated.
+    // Retained for INI migration.
     StickClicks,
     ViewMenu,
     Both,

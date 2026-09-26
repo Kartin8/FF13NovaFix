@@ -138,8 +138,8 @@ Resolution ResolveWrappedResource(void* candidate) noexcept {
         }
         if (word != kWrapperMarker) continue;
 
-        // The payload follows the marker. The marker is allowed in the final
-        // scan slot, so this intentionally validates word 32 as well
+        // The payload is the word after the marker. If the marker is in the last scan slot,
+        // validate word 32 as the payload too.
         const std::size_t payloadOffset = byteOffset + sizeof(std::uint32_t);
         if (base > UINTPTR_MAX - payloadOffset) break;
 
@@ -162,17 +162,15 @@ Resolution ResolveResource(void* candidate, ImageRange gameImage) noexcept {
     void* vtable = nullptr;
     if (!TryReadPointer(candidate, vtable) || !vtable) return {};
 
-    // Native D3D9, DXVK and third-party proxy objects keep their vtables
-    // outside the game image. This is the common path and avoids the wrapper
-    // scan that caused the original out-of-bounds read
+    // Native D3D9/DXVK/proxy COM objects have vtables outside the game image.
+    // Handle those directly and avoid the wrapper scan that caused the old out-of-bounds read.
     if (!IsInsideImage(vtable, gameImage)) {
         return IsPlausibleVtable(vtable)
                    ? Resolution{candidate, ResolutionKind::Native}
                    : Resolution{};
     }
 
-    // Crystal Tools wrappers use a game-owned vtable and store the real COM
-    // resource immediately after a marker somewhere in the first 32 words
+    // Crystal Tools wrappers use a game vtable and keep the real COM resource after a marker within the first 32 words
     return ResolveWrappedResource(candidate);
 }
 

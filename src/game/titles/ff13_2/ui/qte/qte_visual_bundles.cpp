@@ -117,23 +117,7 @@ void* volatile* g_productManagerGlobal{};
 
 SRWLOCK g_ownerLock = SRWLOCK_INIT;
 std::array<OwnerRecord, kMaximumOwners> g_owners{};
-NativeMode g_lastBlockedMode{NativeMode::Unknown};
-std::atomic_uint g_loggedRejectionStages{};
 std::atomic_bool g_ownerRegistryFullLogged{};
-
-enum RejectionStage : unsigned {
-    ModeRejected = 1u << 0u,
-    RootRejected = 1u << 1u,
-    AlternateBuildRejected = 1u << 2u,
-    ShapeRejected = 1u << 3u,
-    NodeRunsRejected = 1u << 4u,
-    ParkRejected = 1u << 5u,
-};
-
-bool FirstRejectionAt(unsigned stage) {
-    return (g_loggedRejectionStages.fetch_or(
-                stage, std::memory_order_relaxed) & stage) == 0u;
-}
 
 template <typename T>
 T ReadAt(const void* object, std::size_t offset) {
@@ -153,10 +137,6 @@ void WriteAt(void* object, std::size_t offset, const T& value) {
 
 std::size_t ModeIndex(NativeMode mode) {
     return mode == NativeMode::Keyboard ? 1u : 0u;
-}
-
-const char* ModeName(NativeMode mode) {
-    return mode == NativeMode::Keyboard ? "keyboard" : "controller";
 }
 
 Bundle& BundleFor(OwnerRecord& record, NativeMode mode) {
@@ -307,14 +287,6 @@ std::size_t UniqueNodeCount(const Bundle& bundle) {
     return count;
 }
 
-std::uint32_t PresenceMask(const Bundle& bundle) {
-    std::uint32_t mask = 0u;
-    for (std::size_t index = 0; index < bundle.nodes.size(); ++index) {
-        if (bundle.nodes[index]) mask |= 1u << index;
-    }
-    return mask;
-}
-
 void HideDistinctNodes(const Bundle& bundle, const Bundle& preserve) {
     for (std::size_t index = 0; index < bundle.nodes.size(); ++index) {
         void* node = bundle.nodes[index];
@@ -342,9 +314,7 @@ bool ShapeMatches(const Bundle& controller, const Bundle& keyboard,
         }
         return true;
     }
-    // Resource 118 at +0x80 is controller-only. sub_7B3BB0 preserves the
-    // +0xF8 mode value in EDX across sub_7B2140 and tests it before creating
-    // that node; Hex-Rays incorrectly presents the test as a 64-bit return
+    // Resource 118 at +0x80 exists only in the controller bundle.
     if (!controller.nodes[0] || keyboard.nodes[0]) return false;
     for (std::size_t index = 2; index < controller.nodes.size(); ++index) {
         if (!!controller.nodes[index] != !!keyboard.nodes[index]) return false;
@@ -508,18 +478,10 @@ PrepareResult PrepareOwner(void* owner) {
     const std::uint32_t capturedMode =
         ReadAt<std::uint32_t>(owner, kOwnerModeOffset);
     if ((capturedMode != 0u) != (primaryMode == NativeMode::Keyboard)) {
-        if (FirstRejectionAt(ModeRejected)) {
-            LogDebug("XIII-2 QTE bundle rejected: owner=%p stage=mode epoch=%s native=%u",
-                     owner, ModeName(primaryMode), capturedMode);
-        }
         return PrepareResult::Unsupported;
     }
     void* root = ReadAt<void*>(owner, kOwnerRootOffset);
     if (!root) {
-        if (FirstRejectionAt(RootRejected)) {
-            LogDebug("XIII-2 QTE bundle rejected: owner=%p stage=root mode=%s",
-                     owner, ModeName(primaryMode));
-        }
         return PrepareResult::Unsupported;
     }
 
@@ -545,16 +507,6 @@ PrepareResult PrepareOwner(void* owner) {
     const bool shapeMatches = ShapeMatches(controller, keyboard, highFamily);
     if (!built || !shapeMatches) {
         HideDistinctNodes(alternate, primary);
-        const unsigned stage = built
-            ? ShapeRejected : AlternateBuildRejected;
-        if (FirstRejectionAt(stage)) {
-            LogDebug("XIII-2 QTE bundle rejected: owner=%p stage=%s state=%u family=%s mode=%s controller-mask=0x%03X keyboard-mask=0x%03X",
-                     owner, built ? "shape" : "alternate-build",
-                     ReadAt<std::uint32_t>(owner, kOwnerStateOffset),
-                     highFamily ? "high" : "directional",
-                     ModeName(primaryMode), PresenceMask(controller),
-                     PresenceMask(keyboard));
-        }
         return PrepareResult::Unsupported;
     }
     void* primaryPrevious = nullptr;
@@ -567,23 +519,10 @@ PrepareResult PrepareOwner(void* owner) {
         root, alternate, alternatePrevious, alternateNext);
     if (!primaryRun || !alternateRun) {
         HideDistinctNodes(alternate, primary);
-        if (FirstRejectionAt(NodeRunsRejected)) {
-            LogDebug("XIII-2 QTE bundle rejected: owner=%p stage=node-runs state=%u family=%s mode=%s primary-mask=0x%03X alternate-mask=0x%03X",
-                     owner, ReadAt<std::uint32_t>(owner, kOwnerStateOffset),
-                     highFamily ? "high" : "directional",
-                     ModeName(primaryMode), PresenceMask(primary),
-                     PresenceMask(alternate));
-        }
         return PrepareResult::Unsupported;
     }
     if (!ParkBundle(alternate)) {
         HideDistinctNodes(alternate, primary);
-        if (FirstRejectionAt(ParkRejected)) {
-            LogDebug("XIII-2 QTE bundle rejected: owner=%p stage=park state=%u family=%s mode=%s",
-                     owner, ReadAt<std::uint32_t>(owner, kOwnerStateOffset),
-                     highFamily ? "high" : "directional",
-                     ModeName(primaryMode));
-        }
         return PrepareResult::Unsupported;
     }
 
@@ -866,8 +805,6 @@ SwitchResult SwitchAll(NativeMode mode) {
     AcquireSRWLockExclusive(&g_ownerLock);
 
     std::size_t owners = 0u;
-    std::size_t unsupportedOwners = 0u;
-    std::size_t deferredOwners = 0u;
     bool needsSwitch = false;
     bool unsupported = false;
     bool deferred = false;
@@ -878,34 +815,24 @@ SwitchResult SwitchAll(NativeMode mode) {
         if (record.activeMode != mode) {
             if (!record.buildAttempted || !record.switchable) {
                 unsupported = true;
-                ++unsupportedOwners;
                 continue;
             }
             if (!OwnerCanBeIgnored(record) &&
                 !OwnerCanSwitch(record, mode)) {
                 deferred = true;
-                ++deferredOwners;
             }
         }
     }
 
     if (!owners) {
-        g_lastBlockedMode = NativeMode::Unknown;
         ReleaseSRWLockExclusive(&g_ownerLock);
         return SwitchResult::NoOwners;
     }
     if (!needsSwitch) {
-        g_lastBlockedMode = NativeMode::Unknown;
         ReleaseSRWLockExclusive(&g_ownerLock);
         return SwitchResult::Unchanged;
     }
     if (unsupported || deferred) {
-        if (g_lastBlockedMode != mode) {
-            LogDebug("XIII-2 QTE live visual switch deferred: owners=%zu unsupported=%zu terminal-visible=%zu mode=%s",
-                     owners, unsupportedOwners, deferredOwners,
-                     ModeName(mode));
-            g_lastBlockedMode = mode;
-        }
         ReleaseSRWLockExclusive(&g_ownerLock);
         return unsupported ? SwitchResult::Unsupported : SwitchResult::Deferred;
     }
@@ -919,7 +846,6 @@ SwitchResult SwitchAll(NativeMode mode) {
             SwitchOwner(record, mode);
         }
     }
-    g_lastBlockedMode = NativeMode::Unknown;
     ReleaseSRWLockExclusive(&g_ownerLock);
 
     return SwitchResult::Switched;

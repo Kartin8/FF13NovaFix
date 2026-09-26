@@ -1,6 +1,5 @@
 #include "settings/input_settings.h"
 
-#include "diagnostics/log.h"
 #include "settings/config_path.h"
 #include "settings/ini_value.h"
 #include "settings/named_values.h"
@@ -85,12 +84,6 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
     Normalize(loaded);
     g_active = loaded;
     g_stored = loaded;
-    Log("Input settings loaded: prompt-mode=%u vibration=%d strength=%u%% hotkeys=%u/%u gamepad-hotkey=%u",
-        static_cast<unsigned>(loaded.promptMode), loaded.controllerVibration,
-        loaded.vibrationStrengthPercent,
-        static_cast<unsigned>(loaded.overlayHotkey),
-        static_cast<unsigned>(loaded.alternateOverlayHotkey),
-        static_cast<unsigned>(loaded.overlayGamepadHotkey));
     return TRUE;
 }
 
@@ -168,12 +161,6 @@ bool SaveInput(const InputSettings& requested) {
         g_activeGeneration.fetch_add(1, std::memory_order_release);
         ReleaseSRWLockExclusive(&g_lock);
     }
-    Log("Input settings saved: config=%d prompt-mode=%u vibration=%d strength=%u%% hotkeys=%u/%u gamepad-hotkey=%u",
-        saved, static_cast<unsigned>(value.promptMode), value.controllerVibration,
-        value.vibrationStrengthPercent,
-        static_cast<unsigned>(value.overlayHotkey),
-        static_cast<unsigned>(value.alternateOverlayHotkey),
-        static_cast<unsigned>(value.overlayGamepadHotkey));
     return saved;
 }
 

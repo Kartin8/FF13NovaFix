@@ -19,8 +19,8 @@
 namespace novafix::game::lr_snapshot::outerworld_menu {
 namespace {
 
-// SnsMenu's submit command normally opens the dead Outerworld confirmation
-// and then starts SnsPost. Replace only that command boundary
+// SnsMenu normally opens the dead Outerworld confirmation here, then starts SnsPost.
+// Replace only this submit call
 constexpr std::array<patch::RelativeCallSite, 1> kOuterworldSubmitCalls{{
     {0x000587EBu, {0xE8, 0xD0, 0xA8, 0xFF, 0xFF}},
 }};

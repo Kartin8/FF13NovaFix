@@ -4,8 +4,8 @@
 
 namespace novafix::display::texture_policy {
 
-// Preserves zero/positive and non-LOD sampler state. Used only for XIII-2,
-// whose renderer applies a negative bias to nearly every multi-level texture
+// Clamp only negative mip LOD bias. Leave zero/positive bias and unrelated sampler states alone.
+// XIII-2 applies a negative bias to nearly every mipmapped texture.
 std::uint32_t ClampNegativeMipLodBias(std::uint32_t state,
                                       std::uint32_t value, float minimumBias);
 

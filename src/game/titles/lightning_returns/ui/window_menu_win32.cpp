@@ -321,8 +321,6 @@ bool AddAddonMenus(HMENU root) {
         return false;
     }
     g_addonMenu = master;
-    Log("Add-on menu: menus=%d items=%zu",
-        GetMenuItemCount(master), g_addonCommands.size());
     return true;
 }
 

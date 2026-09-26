@@ -39,9 +39,8 @@ inline bool CopyBoundedPromptSource(
     return false;
 }
 
-// Fixed storage keeps captured rich-text bytes at stable addresses while a
-// native text rebuild reads them. Synchronization stays with the owner because
-// XIII and XIII-2 enter their rebuild paths under different lock scopes
+// Keep captured rich-text bytes at fixed addresses while the game rebuilds the text.
+// Locking stays with the caller because XIII and XIII-2 enter these rebuilds under different locks.
 template <typename Record, std::size_t Capacity, std::size_t BucketCount>
 class PromptSourceStore {
 public:

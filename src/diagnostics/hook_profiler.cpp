@@ -16,6 +16,7 @@ struct Counters {
     std::atomic<std::uint64_t> totalTicks{};
     std::atomic<std::uint64_t> maximumTicks{};
     std::atomic_uint estimated{};
+    std::atomic<std::uint64_t> cpuCycles{};
 };
 
 constexpr std::array<const char*, static_cast<std::size_t>(Point::Count)>
@@ -110,6 +111,16 @@ void Record(std::size_t index, std::uint64_t ticks,
     }
 }
 
+void RecordOwn(std::size_t index, std::uint64_t ticks,
+               std::uint64_t cycles, std::uint32_t weight) {
+    Record(index, ticks, weight);
+    if (index < g_counters.size()) {
+        g_counters[index].cpuCycles.fetch_add(
+            cycles * static_cast<std::uint64_t>(weight),
+            std::memory_order_relaxed);
+    }
+}
+
 const char* PointName(std::size_t index) {
     if (index < kBuiltinPointCount) return kNames[index];
     const std::size_t dynamicIndex = index - kBuiltinPointCount;
@@ -191,6 +202,40 @@ void Scope::Stop() {
     active_ = false;
 }
 
+OwnCpuScope::OwnCpuScope(DynamicPoint point, bool selected,
+                         std::uint32_t weight)
+    : index_(point.index), weight_(weight) {
+    active_ = index_ != DynamicPoint::kInvalid && selected &&
+        weight_ != 0u && IsLogEnabled(LogLevel::Debug) && Frequency() > 0;
+    if (active_) Resume();
+}
+
+OwnCpuScope::~OwnCpuScope() {
+    if (!active_) return;
+    Pause();
+    RecordOwn(index_, elapsed_, cycles_, weight_);
+}
+
+void OwnCpuScope::Pause() {
+    if (!active_ || !running_) return;
+    const std::int64_t end = Now();
+    ULONG64 cycleEnd{};
+    const bool cycleValid = QueryThreadCycleTime(
+        GetCurrentThread(), &cycleEnd) != 0;
+    if (end >= start_) elapsed_ += static_cast<std::uint64_t>(end - start_);
+    if (cycleValid && cycleEnd >= cycleStart_) cycles_ += cycleEnd - cycleStart_;
+    running_ = false;
+}
+
+void OwnCpuScope::Resume() {
+    if (!active_ || running_) return;
+    ULONG64 cycles{};
+    QueryThreadCycleTime(GetCurrentThread(), &cycles);
+    cycleStart_ = cycles;
+    start_ = Now();
+    running_ = true;
+}
+
 void ReportIfDue() {
     if (!IsLogEnabled(LogLevel::Debug)) return;
     const std::int64_t frequency = Frequency();
@@ -224,6 +269,8 @@ void ReportIfDue() {
             counters.maximumTicks.exchange(0u, std::memory_order_relaxed);
         const unsigned estimated =
             counters.estimated.exchange(0u, std::memory_order_relaxed);
+        const std::uint64_t cpuCycles =
+            counters.cpuCycles.exchange(0u, std::memory_order_relaxed);
         if (!calls) continue;
 
         const double totalMilliseconds =
@@ -236,10 +283,19 @@ void ReportIfDue() {
             totalMilliseconds * 1000.0 / static_cast<double>(calls);
         const double windowPercent = windowMilliseconds > 0.0
             ? totalMilliseconds * 100.0 / windowMilliseconds : 0.0;
-        LogDebug("Hook timing: name=%s calls=%llu total=%.3fms avg=%.3fus max=%.3fms window=%.2f%% estimated=%u",
-                 PointName(index), static_cast<unsigned long long>(calls),
-                 totalMilliseconds, averageMicroseconds,
-                 maximumMilliseconds, windowPercent, estimated);
+        const char* name = PointName(index);
+        if (std::strncmp(name, "novafix.cpu.", 12u) == 0) {
+            LogDebug("NovaFix CPU: hook=%s calls=%llu own-wall=%.3fms own-cycles=%llu avg=%.3fus window=%.2f%% estimated=%u",
+                     name + 12u, static_cast<unsigned long long>(calls),
+                     totalMilliseconds,
+                     static_cast<unsigned long long>(cpuCycles),
+                     averageMicroseconds, windowPercent, estimated);
+        } else {
+            LogDebug("Hook timing: name=%s calls=%llu total=%.3fms avg=%.3fus max=%.3fms window=%.2f%% estimated=%u",
+                     name, static_cast<unsigned long long>(calls),
+                     totalMilliseconds, averageMicroseconds,
+                     maximumMilliseconds, windowPercent, estimated);
+        }
     }
 }
 

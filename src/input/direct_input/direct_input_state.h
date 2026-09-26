@@ -42,14 +42,12 @@ private:
         bool comparable{};
     };
 
-    Sample BeginSample(IDirectInputDevice8A* device, DWORD size,
-                       const void* data, unsigned deviceKind);
+    Sample BeginSample(DWORD size, const void* data);
     void CommitSample(const Sample& sample);
 
     std::array<unsigned char, sizeof(DIJOYSTATE2)> previous_{};
     DWORD previousSize_{};
     bool hasPrevious_{};
-    bool loggedSize_{};
     AxisActivityTracker axes_;
     DirectInputNeutralAxes neutralAxes_{};
     bool hasNeutralAxes_{};

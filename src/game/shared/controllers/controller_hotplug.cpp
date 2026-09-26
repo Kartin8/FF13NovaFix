@@ -19,9 +19,8 @@
 namespace novafix::game::controller_hotplug {
 namespace {
 
-// These are offsets from the start of a real topology event, not a permanent
-// poll. XIII DirectInput backends need a few chances for Steam Input or a
-// Bluetooth transport to finish publishing its XInput slot
+// Probe only after a real device-topology event, not continuously.
+// XIII may need a few retries while Steam Input or Bluetooth finishes exposing the XInput slot.
 constexpr std::array<DWORD, 6> kTopologyProbeScheduleMs{
     0u, 125u, 250u, 500u, 1000u, 2000u,
 };
@@ -72,8 +71,6 @@ void ObserveXInputTopology() {
         g_lastXInputMask.exchange(connected, std::memory_order_acq_rel);
     if (connected == previous) return;
 
-    LogInfo("Controller connection changed");
-    Log("XInput mask: 0x%X -> 0x%X", previous, connected);
     features::NotifyDeviceTopologyChanged();
 }
 
@@ -113,18 +110,12 @@ DWORD CALLBACK ConfigurationManagerNotification(
         return ERROR_SUCCESS;
     }
 
-    Log("Controller Plug-and-Play event received: action=%s",
-        action == CM_NOTIFY_ACTION_DEVICEINTERFACEARRIVAL
-            ? "arrival"
-            : "removal");
-    // Dispatches to both native hotplug and vibration target invalidation
     features::NotifyDeviceTopologyChanged();
     return ERROR_SUCCESS;
 }
 
 bool RegisterConfigurationManagerNotifications() {
     if (compat::IsWine()) {
-        Log("Controller Plug-and-Play callback skipped on Wine/Proton: Win32 device messages remain active");
         return false;
     }
 
@@ -164,8 +155,7 @@ bool RegisterConfigurationManagerNotifications() {
         return false;
     }
 
-    // The callback belongs to cfgmgr32; retain the module for the process
-    // lifetime together with the notification registration
+    // Keep cfgmgr32 loaded for the callback lifetime.
     return true;
 }
 

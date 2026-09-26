@@ -83,8 +83,32 @@ private:
     bool active_{};
 };
 
-// Reports aggregate timings every 10s while Debug logging is enabled
-// Call from one frame-boundary thread, never from a measured hook
+// Measures NovaFix CPU time only. Pause it around game/driver calls so their work isn't counted.
+// Debug-only and sampled.
+class OwnCpuScope {
+public:
+    explicit OwnCpuScope(DynamicPoint point, bool selected = true,
+                         std::uint32_t weight = 1u);
+    OwnCpuScope(const OwnCpuScope&) = delete;
+    OwnCpuScope& operator=(const OwnCpuScope&) = delete;
+    ~OwnCpuScope();
+
+    void Pause();
+    void Resume();
+
+private:
+    std::uint16_t index_{DynamicPoint::kInvalid};
+    std::int64_t start_{};
+    std::uint64_t cycleStart_{};
+    std::uint64_t elapsed_{};
+    std::uint64_t cycles_{};
+    std::uint32_t weight_{1u};
+    bool active_{};
+    bool running_{};
+};
+
+// Emit aggregate timings every 10s while Debug logging is enabled.
+// Call from one frame-boundary thread, never from inside a measured hook.
 void ReportIfDue();
 
 } // namespace novafix::hook_profiler
@@ -105,4 +129,13 @@ void ReportIfDue();
     const bool variable##_selected =                                         \
         (variable##_sample_counter++ & ((interval) - 1u)) == 0u;             \
     ::novafix::hook_profiler::Scope variable(                                \
+        variable##_point, variable##_selected, (interval))
+
+#define NOVAFIX_PROFILE_OWN_CPU(variable, label, interval)                  \
+    static const auto variable##_point =                                     \
+        ::novafix::hook_profiler::RegisterDynamicPoint(label);               \
+    thread_local std::uint32_t variable##_sample_counter{};                  \
+    const bool variable##_selected =                                         \
+        (variable##_sample_counter++ & ((interval) - 1u)) == 0u;             \
+    ::novafix::hook_profiler::OwnCpuScope variable(                          \
         variable##_point, variable##_selected, (interval))

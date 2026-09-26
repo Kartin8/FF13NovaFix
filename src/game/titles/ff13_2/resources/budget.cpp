@@ -1,6 +1,5 @@
 #include "game/titles/ff13_2/resources/budget.h"
 
-#include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
 #include "game/core/game_profile.h"
 #include "game/core/image_view.h"
@@ -50,7 +49,6 @@ BudgetGetterFn g_originalBudgetGetter{};
 const std::byte* g_imageBase{};
 std::atomic_uint g_targetRate{0u};
 std::atomic_bool g_installed{false};
-std::atomic_uint32_t g_lastLoggedBudget{0u};
 
 bool HasExpectedGetterContract(const std::byte* target,
                                const void* budgetStorage) noexcept {
@@ -75,8 +73,6 @@ std::uint32_t CallerRva(const void* caller) noexcept {
 }
 
 std::uint32_t __cdecl BudgetGetterHook() {
-    NOVAFIX_PROFILE_SAMPLED_NAMED_SCOPE(
-        hookTiming, "hook.ff13-2.resource-budget-total", 64u);
     BudgetGetterFn original = g_originalBudgetGetter;
     if (!original) return 0u;
 
@@ -150,15 +146,6 @@ void Pump() {
     const unsigned targetRate = performance::CurrentTargetRate();
     if (g_targetRate.load(std::memory_order_relaxed) != targetRate) {
         g_targetRate.store(targetRate, std::memory_order_relaxed);
-    }
-
-    const std::uint32_t scaled = ScaleModelBudget(15'000u, targetRate);
-    std::uint32_t logged = g_lastLoggedBudget.load(std::memory_order_relaxed);
-    if (scaled != logged &&
-        g_lastLoggedBudget.compare_exchange_strong(
-            logged, scaled, std::memory_order_relaxed)) {
-        Log("XIII-2 resource budget: target=%u Hz model-slice=%u us",
-            targetRate, scaled);
     }
 }
 

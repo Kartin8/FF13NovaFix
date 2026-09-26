@@ -174,11 +174,9 @@ void* __fastcall OwnerConstructorHook(void* owner, void*) {
     if (!original) return owner;
 
     const EpochSnapshot epoch = AcquireEpoch();
-    // The native manager builds all mode-specific children immediately after
-    // this constructor returns. Synchronize the global atlas and native flag
-    // first, then override the PC-only snapshot produced by the constructor
-    // Do not mark the cinema atlas generation here: if cinema_parts02 is
-    // materialized later, its binding hook must repeat the same frozen mode
+    // The manager creates its mode-specific children right after this constructor.
+    // Set the global atlas/mode first, then replace the PC-only snapshot the constructor just made.
+    // Don't advance the cinema atlas generation here: cinema_parts02 may bind later and must use the same frozen mode.
     ApplyEpochMode(epoch, false, false);
     void* result = original(owner);
     if (!result) {
@@ -239,9 +237,8 @@ int __fastcall TextureBindingHook(void* binding, void*,
         return result;
     }
 
-    // Replacement from inside the binding stack can be overwritten by later
-    // members of the same texture-load batch. Coalesce matching bindings and
-    // apply once from the next game-thread input update
+    // A replacement made inside the binding stack can be overwritten later in the same texture-load batch
+    // Queue matching bindings and apply them once on the next game-thread input update
     g_appliedAtlasGeneration.store(0u, std::memory_order_release);
     g_pendingAtlasGeneration.store(epoch.generation,
                                    std::memory_order_release);

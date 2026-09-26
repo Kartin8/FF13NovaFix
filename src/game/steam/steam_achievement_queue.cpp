@@ -38,7 +38,7 @@ void PersistLocked() {
         g_persistFailureLogged = false;
     } else if (!g_persistFailureLogged) {
         g_persistFailureLogged = true;
-        Log("Unable to persist the pending Steam achievement queue");
+        LogWarning("Unable to persist the pending Steam achievement queue");
     }
 }
 

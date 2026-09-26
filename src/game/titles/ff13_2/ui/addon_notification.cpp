@@ -247,7 +247,6 @@ void __fastcall BattleLoadHook(void* battleLoader, void*, int mode) {
             product, &MarkDialogOpen);
     }
     if (product) {
-        Log("XIII-2 loaded-module report opened at the native Xbox userSelect startup boundary before battle/AOP construction");
         // Hold the startup worker until GuiMessage closes and Confirm is released
         // Cinema/AOP does not exist yet and cannot consume that closing edge
         while (g_dialogOpen.load(std::memory_order_acquire)) {
@@ -262,7 +261,6 @@ void __fastcall BattleLoadHook(void* battleLoader, void*, int mode) {
         g_startupBarrierActive.store(false, std::memory_order_release);
         startup_module_notification::Persist(
             std::move(signature), "XIII-2");
-        Log("XIII-2 loaded-module report closed and Confirm released: continuing the untouched pre-AOP startup path");
     } else {
         startup_module_notification::Clear();
         g_startupBarrierActive.store(false, std::memory_order_release);

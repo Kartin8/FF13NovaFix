@@ -19,9 +19,8 @@ constexpr CandidateAction NextAction(bool locallyDirty, bool querySucceeded,
 }
 
 constexpr std::uint64_t RetryDelayMilliseconds(bool storeWasAttempted) {
-    // Steam documents StoreStats as rate-limited and recommends calls on the
-    // order of minutes. Interface/readiness failures can be retried quickly;
-    // a rejected StoreStats call must not be hammered every frame or second
+    // Steam rate-limits StoreStats and recommends calls on the order of minutes.
+    // Retry interface/readiness failures quickly, but back off after StoreStats itself is rejected.
     return storeWasAttempted ? 60'000ULL : 1'000ULL;
 }
 

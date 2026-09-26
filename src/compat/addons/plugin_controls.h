@@ -87,7 +87,7 @@ void ConfigureHost(NovaFixPluginGame game, const char* gameName,
                    NovaFixPluginShowNativeMessageFn showNativeMessage = nullptr,
                    NovaFixPluginShowNativeMessageExFn showNativeMessageEx = nullptr);
 
-// Descriptor text is copied; callbacks remain owned by the loaded add-on
+// Descriptor text is copied during discovery. Callback pointers still belong to the add-on.
 bool Discover(HMODULE module, std::wstring_view source);
 bool HasNativeMenus();
 const std::vector<Plugin>& CurrentPlugins();

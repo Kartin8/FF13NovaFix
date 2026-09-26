@@ -270,7 +270,6 @@ int __cdecl StartupLogoCompleteHook() {
         : nullptr;
     startup_module_notification::FinishOpening(product, &MarkDialogOpen);
     if (product) {
-        Log("XIII loaded-module report opened at the native sqexlogo completion command");
         // Hold the startup VM command while Present services GuiMessage
         // Never pump frames here: re-entry corrupts the startup scheduler
         while (g_dialogOpen.load(std::memory_order_acquire)) {
@@ -282,7 +281,6 @@ int __cdecl StartupLogoCompleteHook() {
         while (startup_module_notification::ConfirmHeld()) {
             Sleep(1);
         }
-        Log("XIII loaded-module report closed: releasing the startup VM command");
     } else {
         startup_module_notification::Clear();
         g_dialogOpen.store(false, std::memory_order_release);

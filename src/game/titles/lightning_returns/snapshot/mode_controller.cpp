@@ -29,9 +29,7 @@
 namespace novafix::game::lr_snapshot {
 namespace {
 
-// PC retains profile-less Snapshot (platform feature 11 is clear), but two
-// SNS-wide gates hide it. Bypass them only at Snapshot-owned call sites;
-// leave network services and other Outerworld callers untouched
+// Bypass SNS checks only for Snapshot call sites
 constexpr std::array<patch::RelativeCallSite, 6> kAvailabilityCalls{{
     {0x338D9Du, {0xE8, 0xEE, 0x47, 0x06, 0x00}},
     {0x3B0877u, {0xE8, 0x14, 0xCD, 0xFE, 0xFF}},
@@ -61,7 +59,6 @@ PredicateFn g_modalState{};
 FieldConditionFn g_fieldCondition{};
 std::uintptr_t* g_gameStateSlot{};
 std::uintptr_t* g_snapshotContextSlot{};
-std::atomic<int> g_lastAvailabilityState{-1};
 
 bool CanOpenPluginNativeMessage() {
     if (!lr_message_window::Available() || !g_modalState ||
@@ -78,7 +75,7 @@ void* OpenPluginNativeMessage(
     std::vector<char> native;
     if (!lr_message_window::ConvertText(message, native)) {
         if (reportFailure) {
-            Log("LR add-on API native status conversion failed");
+            LogWarning("LR add-on API native status conversion failed");
         }
         return nullptr;
     }
@@ -106,10 +103,6 @@ int __cdecl SnapshotAvailabilityHook() {
         gameState != 0u &&
         *reinterpret_cast<const std::uintptr_t*>(
             gameState + 736u * 4u) != 0u;
-    const bool snsDisabledByPlatform =
-        gameState != 0u &&
-        (*reinterpret_cast<const std::uint32_t*>(
-             gameState + 417u * 4u) & 4u) != 0u;
     const bool contextReady =
         g_snapshotContextSlot && *g_snapshotContextSlot != 0u;
     const std::uintptr_t context =
@@ -124,18 +117,6 @@ int __cdecl SnapshotAvailabilityHook() {
     const bool modal = !g_modalState || g_modalState() != 0;
     const bool available =
         appReady && contextReady && fieldAllowsSnapshot && !modal;
-    const int state = (appReady ? 1 : 0) |
-                      (contextReady ? 2 : 0) |
-                      (fieldQueryReady ? 4 : 0) |
-                      (fieldAllowsSnapshot ? 8 : 0) |
-                      (modal ? 16 : 0) |
-                      (snsDisabledByPlatform ? 32 : 0);
-    const int previous = g_lastAvailabilityState.exchange(state);
-    if (previous != state) {
-        Log("LR Snapshot availability: app=%d context=%d query=%d field=%d modal=%d platform_sns_disabled=%d result=%d",
-            appReady, contextReady, fieldQueryReady, fieldAllowsSnapshot,
-            modal, snsDisabledByPlatform, available);
-    }
     return available;
 }
 
@@ -242,8 +223,7 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID, PVOID*) {
             const_cast<std::byte*>(textLabelWrapper->data())),
     });
 
-    // Add-on messages need the close callback even when the startup report is off
-    // The startup hook forwards immediately when no report is pending
+    // Add-on messages always need the close callback.
     lr_addon_notification::Install();
     compat::native_notifications::RegisterBackend({
         &CanOpenPluginNativeMessage, &OpenPluginNativeMessage,

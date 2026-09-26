@@ -18,11 +18,8 @@ inline bool IsFieldLocomotionResource(std::string_view name) {
         name.find("z_turn") != std::string_view::npos;
     if (fieldFamily) return true;
 
-    // Some enemies switch from their field-prefixed resources to the generic
-    // skeleton locomotion set while they are still visible in the field. The
-    // native names start with a skeleton id (s1/s2), optionally followed by
-    // the x_ field-enemy namespace. Keep action resources such as summon,
-    // attack, appear and encounter outside this positive whitelist
+    // Some field enemies switch to generic skeleton locomotion while still visible on the field.
+    // Accept s1/s2 names, optionally under the x_ field-enemy namespace, but exclude action resources like summon, attack, appear and encounter.
     if (name.size() < 3u || name[0] != 's' ||
         name[1] < '0' || name[1] > '9') {
         return false;

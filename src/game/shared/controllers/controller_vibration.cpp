@@ -132,13 +132,9 @@ int FindController() {
 
     for (unsigned index = 0; index < 4; ++index) {
         if (!input::xinput::IsConnected(index)) continue;
-        if (current != static_cast<int>(index)) {
-            Log("Controller vibration target selected: XInput user %u", index);
-        }
         g_controllerIndex.store(static_cast<int>(index), std::memory_order_release);
         return static_cast<int>(index);
     }
-    if (current >= 0) Log("Controller vibration target disconnected");
     g_controllerIndex.store(-1, std::memory_order_release);
     return -1;
 }

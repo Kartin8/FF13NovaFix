@@ -16,9 +16,7 @@ bool WantsInput();
 bool CapturesInput();
 bool CapturesControllerInput();
 void CloseForFocusLoss();
-// Stop submitting ImGui frames while the game processes a window-close
-// request.  This is deliberately temporary: some of the games may cancel a
-// native close confirmation and continue running
+// Suspend ImGui while the game handles a potentially cancelable close request.
 void PrepareForApplicationClose();
 bool ForwardWin32InputMessage(HWND window, UINT message, WPARAM wParam,
                               LPARAM lParam);

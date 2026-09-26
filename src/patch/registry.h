@@ -63,8 +63,8 @@ ReserveResult Reserve(std::string_view feature,
 void MarkApplied(ClaimId claim);
 // Suspend checks while the vtable has no owner, but keep the reservation
 void MarkDormant(ClaimId claim);
-// Revalidate the claim and restore slots replaced by the runtime
-// Preserve valid outer hooks and never adopt foreign pointers
+// Recheck the claim and restore any vtable slots replaced by the runtime.
+// Keep valid outer hooks and never take ownership of foreign pointers.
 bool ReactivateVtableClaim(ClaimId claim);
 void MarkReverted(ClaimId claim);
 void MarkFailure(ClaimId claim, State state, std::string_view detail = {});

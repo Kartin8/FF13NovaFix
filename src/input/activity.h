@@ -10,6 +10,5 @@ enum class InputSource : unsigned char {
 
 void NotifyActivity(InputSource source);
 InputSource LatestActivity();
-const char* InputSourceName(InputSource source);
 
 } // namespace novafix::input

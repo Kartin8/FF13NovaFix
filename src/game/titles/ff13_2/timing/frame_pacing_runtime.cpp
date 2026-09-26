@@ -25,7 +25,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <span>
@@ -33,7 +32,6 @@
 namespace novafix::game::xiii2_frame_pacing_runtime {
 namespace {
 
-constexpr float kAuthoredSimulationRate = 29.97003f;
 constexpr ULONGLONG kWaitPatchRetryIntervalMs = 30'000u;
 constexpr std::uint32_t kStatePointerRva = 0x4D67208u;
 constexpr std::uint32_t kSetterRva = 0x802610u;
@@ -62,8 +60,7 @@ struct DeltaCallSite {
     std::array<std::uint8_t, 5> expected;
 };
 
-// C02660's retry jumps into its prologue at C02664. Redirect validated callers;
-// an entry detour would overwrite the retry target
+// Redirect callers because C02660 retries into its own prologue.
 constexpr std::array<DeltaCallSite, 4> kDeltaCallSites{{
     {0x8043C2u, {0xE8, 0x99, 0xE2, 0xFF, 0xFF}},
     {0x804400u, {0xE8, 0x5B, 0xE2, 0xFF, 0xFF}},
@@ -76,10 +73,7 @@ struct FrameSignalCallSite {
     std::array<std::uint8_t, 5> expected;
 };
 
-// Both C04C20 branches execute this signal immediately after the render-ring
-// drain and immediately before C02660 reads the simulation delta.  Waiting in
-// the redirected call preserves Steam's renderer synchronization while placing
-// the absolute cadence boundary at the same phase used by the Store build
+// Wait between the render-ring drain and simulation-delta read.
 constexpr std::array<FrameSignalCallSite, 2> kFrameSignalCallSites{{
     {0x804E7Au, {0xE8, 0x61, 0xC9, 0xE3, 0xFF}},
     {0x8050DAu, {0xE8, 0x01, 0xC7, 0xE3, 0xFF}},
@@ -88,8 +82,7 @@ constexpr std::array<FrameSignalCallSite, 2> kFrameSignalCallSites{{
 constexpr std::array<std::uint8_t, 2> kWaitInfinite{
     0x6A, 0xFF,
 };
-// Keep a 1-ms event wait: zero busy-spins against movie/decode threads,
-// while the original timeout couples presentation to 29.97 Hz
+// A 1-ms wait yields without restoring the native 29.97 Hz coupling.
 constexpr std::array<std::uint8_t, 2> kWaitYield{
     0x6A, 0x01,
 };
@@ -137,9 +130,6 @@ MovieOpenFn g_originalMovieOpen{};
 VeffUpdateFn g_originalVeffUpdate{};
 std::atomic_bool g_movieOpenPending{};
 std::atomic<void*> g_pendingMoviePlayer{};
-std::atomic_bool g_loggedGameBoundaryPacingActive{};
-std::atomic_int32_t g_observedFrameSourceMode{
-    (std::numeric_limits<std::int32_t>::min)()};
 std::atomic_uint32_t g_deltaGeneration{1u};
 thread_local std::uint32_t g_seenDeltaGeneration{};
 thread_local LARGE_INTEGER g_lastPresentationCounter{};
@@ -278,14 +268,6 @@ void ApplyFrameSourcePolicy(
     if (!source) return;
     presentationMode = xiii2_frame_timing_policy::Xiii2CanDecouplePresentation(
         source->mode);
-    const std::int32_t previousMode =
-        g_observedFrameSourceMode.load(std::memory_order_relaxed);
-    if (previousMode != source->mode) {
-        g_observedFrameSourceMode.store(
-            source->mode, std::memory_order_relaxed);
-        Log("XIII-2 frame-source mode: %d -> %d source=%.6f",
-            previousMode, source->mode, *source->rate);
-    }
     const bool ownsCurrentSource =
         g_changedFrameSourceRate == source->rate;
     const float original = ownsCurrentSource
@@ -294,21 +276,15 @@ void ApplyFrameSourcePolicy(
         original, source->mode, settings.highFpsCorrectness,
         settings.frameRateLimit);
     if (ownsCurrentSource && SameFloat(adjusted, original)) {
-        // Only gameplay owns the saved rate; applying it to movie mode 2 breaks playback
+        // Movie mode must keep its native rate.
         if (source->mode == 1) RestoreFrameSource();
         else ForgetFrameSourceChange();
         return;
     }
     if (!SameFloat(adjusted, *source->rate)) {
-        const bool policyChanged = !ownsCurrentSource ||
-            !SameFloat(adjusted, g_appliedFrameSourceRate);
         RememberFrameSourceChange(source->rate, *source->rate);
         g_appliedFrameSourceRate = adjusted;
         WriteFloat(source->rate, adjusted);
-        if (policyChanged) {
-            Log("XIII-2 authored frame source active: Steam %.6f -> Xbox %.6f mode=%d",
-                g_originalFrameSourceRate, adjusted, source->mode);
-        }
     }
 }
 
@@ -363,10 +339,7 @@ void __fastcall MovieOpenHook(
         !*reinterpret_cast<const std::uint8_t*>(
             bytes + kPlayerActiveOffset)) {
         g_pendingMoviePlayer.store(player, std::memory_order_release);
-        if (!g_movieOpenPending.exchange(
-                true, std::memory_order_acq_rel)) {
-            Log("XIII-2 movie open requested: native scheduler wait restored for preparation");
-        }
+        g_movieOpenPending.store(true, std::memory_order_release);
     }
     original(player, source, path, pathSize, memorySource, loop, audioTrack,
              rangeStartLow, rangeStartHigh, rangeEndLow, rangeEndHigh);
@@ -685,24 +658,9 @@ bool Activate() {
     return true;
 }
 
-void SetGameBoundaryPacingActive(bool active, unsigned frameRateLimit) {
-    const bool previous =
-        frame_pacing::state::gameBoundaryPacingActive.exchange(
-            active, std::memory_order_acq_rel);
-    if (previous == active) return;
-    if (active) {
-        if (!g_loggedGameBoundaryPacingActive.exchange(
-                true, std::memory_order_acq_rel)) {
-            if (frameRateLimit == 60u) {
-                Log("XIII-2 game-boundary cadence=60000/1001 Hz");
-            } else {
-                Log("XIII-2 game-boundary cadence=%u Hz",
-                        frameRateLimit);
-            }
-        }
-        return;
-    }
-    Log("XIII-2 Store-style game-boundary pacing inactive: presentation fallback");
+void SetGameBoundaryPacingActive(bool active) {
+    frame_pacing::state::gameBoundaryPacingActive.store(
+        active, std::memory_order_release);
 }
 
 } // namespace
@@ -719,7 +677,7 @@ void Pump() {
         settings::ActivePerformance();
     AcquireSRWLockExclusive(&g_stateLock);
     bool highRefreshActive = false;
-    // FrameRateLimit changes only our wait; native hooks stay installed for process life
+    // Frame-rate changes do not require reinstalling native hooks.
     const bool supportedProfile = settings.frameRateLimit == 0u ||
                                   settings.frameRateLimit >= 30u;
     if (settings.highFpsCorrectness && supportedProfile) {
@@ -799,10 +757,6 @@ void Pump() {
             frame_pacing::state::appliedPresentationDeltaTicks.store(
                 0u, std::memory_order_release);
         }
-        Log("XIII-2 decoupled presentation %s: authored=%.5f Hz presentation=%s",
-            highRefreshActive ? "active" : "inactive",
-            kAuthoredSimulationRate,
-            settings.frameRateLimit == 0u ? "unlimited" : "high-refresh");
     }
 
     if (!frame_pacing::state::ownershipActive.load(
@@ -810,8 +764,7 @@ void Pump() {
         const bool activated = Activate();
         SetGameBoundaryPacingActive(
             activated && highRefreshActive &&
-                settings.frameRateLimit != 0u,
-            settings.frameRateLimit);
+                settings.frameRateLimit != 0u);
         ReleaseSRWLockExclusive(&g_stateLock);
         return;
     }
@@ -824,18 +777,15 @@ void Pump() {
             g_frameState = nullptr;
             frame_pacing::state::ownershipActive.store(
                 false, std::memory_order_release);
-            SetGameBoundaryPacingActive(false, settings.frameRateLimit);
-            Log("Smooth frame pacing is waiting for a recreated game timing object");
+            SetGameBoundaryPacingActive(false);
             ReleaseSRWLockExclusive(&g_stateLock);
             return;
         }
         g_frameState = replacement;
-        Log("Smooth frame pacing rebound to a recreated game timing object");
     }
 
     SetGameBoundaryPacingActive(
-        highRefreshActive && settings.frameRateLimit != 0u,
-        settings.frameRateLimit);
+        highRefreshActive && settings.frameRateLimit != 0u);
 
     ReleaseSRWLockExclusive(&g_stateLock);
 }

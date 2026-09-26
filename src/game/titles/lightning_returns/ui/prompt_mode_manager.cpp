@@ -71,12 +71,6 @@ std::uint64_t g_pendingGuideRefreshGeneration{};
 SRWLOCK g_xinputLock = SRWLOCK_INIT;
 std::array<XInputSample, XUSER_MAX_COUNT> g_xinputSamples{};
 
-const char* ModeName(NativeMode mode) {
-    if (mode == NativeMode::Keyboard) return "keyboard";
-    if (mode == NativeMode::Controller) return "controller";
-    return "unknown";
-}
-
 int __cdecl PlatformQueryHook(int capability) {
     thread_local std::uint32_t totalSampleCounter{};
     hook_profiler::Scope totalTiming(
@@ -201,7 +195,7 @@ void InstallXInputActivityHook() {
             "XINPUT1_3.dll", kXInputGetStateOrdinal,
             reinterpret_cast<void*>(&XInputGetStateHook),
             reinterpret_cast<void**>(&g_originalXInputGetState))) {
-        Log("LR XInput activity observer unavailable: forced prompt modes still work");
+        LogWarning("LR XInput activity observer unavailable: forced prompt modes still work");
     }
 }
 
@@ -224,20 +218,13 @@ char __fastcall PromptRefreshHook(void* state, void*) {
     bool switched = false;
     std::uint64_t refreshGeneration = 0u;
 
-    // Give the rest of the native UI frame one chance to consume the atlas
-    // change and perform its own component/layout refresh. Rebuilding a missed
-    // complex dialog label immediately can run before its parent layout pass
+    // Let the native layout consume the atlas change for one frame.
     if (g_pendingGuideRefreshGeneration != 0u) {
         const std::uint64_t pendingGeneration =
             g_pendingGuideRefreshGeneration;
         g_pendingGuideRefreshGeneration = 0u;
         if (!switchRequested) {
-            const std::size_t rebuilt =
-                lr_prompt_guides::RebuildMissing(pendingGeneration);
-            if (rebuilt != 0u) {
-                Log("LR rebuilt %zu glyph label(s) missed after one native UI tick",
-                    rebuilt);
-            }
+            (void)lr_prompt_guides::RebuildMissing(pendingGeneration);
         }
     }
 
@@ -249,10 +236,6 @@ char __fastcall PromptRefreshHook(void* state, void*) {
         refreshGeneration = ++g_refreshGeneration;
         lr_prompt_guides::BeginRefresh(refreshGeneration);
         switched = true;
-        Log("LR button prompts switched immediately: mode=%s source=%s preference=%u refresh-generation=%llu",
-            ModeName(desired), input::InputSourceName(activity),
-            static_cast<unsigned>(preference),
-            static_cast<unsigned long long>(refreshGeneration));
     }
 
     char result = 0;

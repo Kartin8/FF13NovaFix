@@ -109,15 +109,6 @@ const Contract* ContractFor(Title title) {
     return nullptr;
 }
 
-const char* TriggerName(input::HotplugTrigger trigger) {
-    switch (trigger) {
-    case input::HotplugTrigger::DeviceChange: return "device-change";
-    case input::HotplugTrigger::Retry: return "bounded-retry";
-    case input::HotplugTrigger::None: return "none";
-    }
-    return "unknown";
-}
-
 bool ValidateCountOperand(const ImageView& image,
                           const Contract& contract,
                           const DirectInputListContract& directInputList,
@@ -172,8 +163,6 @@ bool RebuildDirectInputDeviceList(void* inputManager) {
 
     *g_nativeDeviceCount = 0;
     *static_cast<int*>(inputManager) = -1;
-    Log("Controller device list rebuilt: title=%s released=%d",
-        g_contract->titleName, count);
     return true;
 }
 
@@ -194,13 +183,8 @@ bool __fastcall DeviceListScanHook(void* inputManager, void*) {
         return false;
     }
 
-    const ULONGLONG started = GetTickCount64();
     const bool found = original(inputManager);
-    const ULONGLONG elapsed = GetTickCount64() - started;
     if (found) g_gate.Resolve();
-    Log("Controller hotplug scan: title=%s trigger=%s found=%d duration=%llums",
-        g_contract->titleName, TriggerName(trigger), found,
-        static_cast<unsigned long long>(elapsed));
     return found;
 }
 
@@ -308,7 +292,6 @@ void Pump() {
     }
 
     g_nativeRescanRequest();
-    Log("Controller rescan requested: title=%s", g_contract->titleName);
 }
 
 bool RequiresXInputVerification() {

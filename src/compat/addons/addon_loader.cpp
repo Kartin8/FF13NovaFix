@@ -316,8 +316,6 @@ BOOL CALLBACK LoadAll(PINIT_ONCE, PVOID, PVOID*) {
     for (const Candidate& candidate : candidates) {
         if (IsReservedRenderer(candidate.relativePath)) {
             Record(Status::SkippedReserved);
-            Log("Add-on skipped: renderer belongs in D3D9 chain path=%ls",
-                candidate.relativePath.c_str());
             continue;
         }
 
@@ -327,8 +325,6 @@ BOOL CALLBACK LoadAll(PINIT_ONCE, PVOID, PVOID*) {
                 return SameIdentity(identity, item);
             })) {
             Record(Status::SkippedDuplicate);
-            Log("Add-on skipped: duplicate or self path=%ls",
-                candidate.relativePath.c_str());
             continue;
         }
         if (identity.valid) seen.push_back(identity);
@@ -342,8 +338,6 @@ BOOL CALLBACK LoadAll(PINIT_ONCE, PVOID, PVOID*) {
             addon_storage::Register(existing, candidate.path);
             plugin_controls::Discover(existing, candidate.relativePath);
             Record(Status::AlreadyLoaded);
-            Log("Add-on already loaded: path=%ls",
-                candidate.relativePath.c_str());
             continue;
         }
 
@@ -376,8 +370,6 @@ BOOL CALLBACK LoadAll(PINIT_ONCE, PVOID, PVOID*) {
         }
     }
 
-    Log("Add-on scan: directory=%ls loaded=%u skipped=%u failed=%u",
-        g_report.directory.c_str(), g_report.loaded, g_report.skipped, g_report.failed);
     return TRUE;
 }
 

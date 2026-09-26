@@ -172,8 +172,7 @@ void RecordOpaqueShadowVariant(
         if (mode == OpaqueShadowMode::FixedFunctionDepth) {
             target->fixedDepth.store(variant, std::memory_order_relaxed);
         }
-        // Publishing original last makes every matching lock-free reader see
-        // the corresponding variant initialized in the same release sequence
+        // Store original last with release semantics so lock-free readers can't see it before the matching variant is initialized.
         target->original.store(original, std::memory_order_release);
         g_opaqueShadowVariantCount.fetch_add(1u, std::memory_order_relaxed);
     } else if (target && mode == OpaqueShadowMode::FixedFunctionDepth) {
@@ -184,7 +183,7 @@ void RecordOpaqueShadowVariant(
         variant->Release();
         if (!g_opaqueShadowTableFullLogged.exchange(
                 true, std::memory_order_acq_rel)) {
-            Log("XIII-2 fixed-depth shadow shader table full: variant discarded; repeats suppressed");
+            LogWarning("XIII-2 fixed-depth shadow shader table full: variant discarded; repeats suppressed");
         }
         return;
     }
@@ -222,9 +221,6 @@ IDirect3DPixelShader9* ResolveOpaqueShadowMode(
 
 void SetOpaqueShadowMode(OpaqueShadowMode mode) {
     g_opaqueShadowMode.store(mode, std::memory_order_release);
-    Log("XIII-2 opaque shadow mode=%u available=%u",
-        static_cast<unsigned>(mode),
-        g_opaqueShadowVariantCount.load(std::memory_order_relaxed));
 }
 
 OpaqueShadowMode GetOpaqueShadowMode() {

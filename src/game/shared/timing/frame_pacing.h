@@ -6,12 +6,11 @@ namespace novafix::game::frame_pacing {
 
 bool IsActive();
 
-// A title runtime may retain an authored scheduler quantum while decoupling
-// presentation. Consumers which receive that quantum directly can use the
-// measured wall-clock delta exposed here instead
+// Some game tasks keep their original fixed scheduler step even when presentation is uncapped.
+// Consumers that read that step directly can use the measured frame delta instead.
 bool IsHighRefreshPresentationActive();
-// XIII-2 can move the limiter from Present to the game frame boundary
-// This keeps the two limiter sites mutually exclusive
+// XIII-2 can pace at the game frame boundary instead of Present.
+// Only one limiter site should be active at a time.
 bool UsesGameBoundaryPacing();
 std::uint32_t AppliedPresentationDeltaTicks();
 

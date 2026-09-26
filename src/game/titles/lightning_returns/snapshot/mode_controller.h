@@ -4,13 +4,10 @@ struct IDirect3DDevice9;
 
 namespace novafix::game::lr_snapshot {
 
-// Restores LR's native offline Snapshot route, including its
-// pause-menu prompt and original game input. Installation is exact-build and
-// call-site scoped
+// Restores the offline Snapshot route only at the known call sites for this build
 void Pump();
 
-// Captures the first fully rendered frame after SnsCameraMode has completed
-// its native RequestSnap transition and hidden the photo-mode HUD
+// Captures the first HUD-free frame after RequestSnap.
 void OnPresent(IDirect3DDevice9* device);
 
 } // namespace novafix::game::lr_snapshot

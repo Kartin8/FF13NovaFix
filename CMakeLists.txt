@@ -29,6 +29,7 @@ configure_file(src/proxy_exports.def.in
 set(NOVAFIX_SOURCES
     src/d3d9/alpha_shadow_variants.cpp
     src/diagnostics/hook_profiler.cpp
+    src/diagnostics/gpu_profiler.cpp
     src/diagnostics/log.cpp
     src/common/module_path.cpp
     src/compat/addons/addon_loader.cpp
@@ -302,6 +303,7 @@ if(MSVC)
     target_link_options(d3d9 PRIVATE
         $<$<CONFIG:Release>:/OPT:REF>
         $<$<CONFIG:Release>:/OPT:ICF>
+        $<$<CONFIG:Release>:/MAP>
         $<$<CONFIG:Release>:/LTCG>)
 else()
     target_link_options(d3d9 PRIVATE -static -Wl,--strip-all)

@@ -112,9 +112,6 @@ std::vector<DeviceRecord> g_devices;
 std::deque<DeviceVtableRecord> g_deviceVtables;
 SRWLOCK g_lock = SRWLOCK_INIT;
 std::atomic_uint64_t g_deviceGeneration{1};
-std::atomic_uint g_loggedScissors{0};
-std::atomic_uint g_loggedUiBuffers{0};
-std::atomic_uint g_loggedScreenQuads{0};
 
 void PublishDeviceExtent(
     IDirect3DDevice9* device,
@@ -133,17 +130,6 @@ void PublishDeviceExtent(
         backBuffer->Release();
     }
     display::PublishBackBufferExtent(width, height);
-}
-
-bool ClaimLimitedLog(std::atomic_uint& counter, unsigned limit) {
-    unsigned current = counter.load(std::memory_order_relaxed);
-    while (current < limit) {
-        if (counter.compare_exchange_weak(
-                current, current + 1u, std::memory_order_relaxed)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 DeviceRecord FindDevice(IDirect3DDevice9* device) {
@@ -176,8 +162,7 @@ const DeviceVtableRecord& FindDeviceVtable(IDirect3DDevice9* device) {
     void** table = device ? *reinterpret_cast<void***>(device) : nullptr;
     if (!table) return empty;
 
-    // Vtable records are process-lifetime stable; cache them per thread to
-    // avoid locking and scanning on every draw/state call
+    // Device vtable records live for the whole process. Cache the last one per thread to avoid locking/scanning on every draw or state change.
     thread_local void** cachedTable = nullptr;
     thread_local const DeviceVtableRecord* cachedRecord = nullptr;
     if (table == cachedTable && cachedRecord) return *cachedRecord;
@@ -356,7 +341,6 @@ HRESULT STDMETHODCALLTYPE SetScissorRectHook(IDirect3DDevice9* self, const RECT*
     if (targetWidth < 640u || targetHeight < 480u) {
         return functions.setScissorRect(self, rectangle);
     }
-
     const display::ScissorRect source{
         rectangle->left, rectangle->top, rectangle->right, rectangle->bottom};
     display::ScissorRect menuListRect{};
@@ -376,12 +360,6 @@ HRESULT STDMETHODCALLTYPE SetScissorRectHook(IDirect3DDevice9* self, const RECT*
         : display::ScaleScissorRect(
             source, targetWidth, targetHeight);
     const RECT output{scaled.left, scaled.top, scaled.right, scaled.bottom};
-    if (ClaimLimitedLog(g_loggedScissors, 6u)) {
-        Log("Scissor scaled: %ld,%ld-%ld,%ld -> %ld,%ld-%ld,%ld target=%ux%u",
-            rectangle->left, rectangle->top, rectangle->right, rectangle->bottom,
-            output.left, output.top, output.right, output.bottom,
-            record.backBufferWidth, record.backBufferHeight);
-    }
     return functions.setScissorRect(self, &output);
 }
 
@@ -403,18 +381,8 @@ HRESULT STDMETHODCALLTYPE CreateVertexBufferHook(
         result = functions.createVertexBuffer(
             self, length, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, fvf,
             D3DPOOL_SYSTEMMEM, output, shared);
-        const bool logAllocation = ClaimLimitedLog(g_loggedUiBuffers, 4u);
-        if (logAllocation) {
-            Log("Crystal Tools UI vertex buffer: optimized=%d result=0x%08lX length=%u usage=0x%lX pool=%u",
-                SUCCEEDED(result), static_cast<unsigned long>(result), length,
-                static_cast<unsigned long>(usage), static_cast<unsigned>(pool));
-        }
         if (FAILED(result)) {
             result = functions.createVertexBuffer(self, length, usage, fvf, pool, output, shared);
-            if (logAllocation) {
-                Log("UI vertex buffer optimization rejected by backend; original allocation fallback result=0x%08lX",
-                    static_cast<unsigned long>(result));
-            }
         }
     } else {
         result = functions.createVertexBuffer(self, length, usage, fvf, pool, output, shared);
@@ -448,9 +416,6 @@ HRESULT STDMETHODCALLTYPE DrawPrimitiveUPHook(
     if (SUCCEEDED(self->GetViewport(&viewport)) &&
         display::CorrectNativeScreenQuad(static_cast<const float*>(vertexData), stride,
                                          viewport.Width, viewport.Height, corrected)) {
-        if (ClaimLimitedLog(g_loggedScreenQuads, 4u)) {
-            Log("Crystal Tools screen quad aligned: viewport=%ux%u", viewport.Width, viewport.Height);
-        }
         return submit(corrected.data());
     }
     return submit(vertexData);

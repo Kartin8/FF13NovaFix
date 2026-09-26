@@ -182,9 +182,8 @@ std::optional<std::vector<std::byte>> ValidatedPrefix(
         return std::nullopt;
     }
 
-    // A1 carries an ASLR-relocated absolute operand. Copy the validated live
-    // instruction into the trampoline instead of comparing it with preferred
-    // image-base bytes
+    // A1 contains an ASLR-relocated absolute address.
+    // Copy the already-validated live instruction into the trampoline instead of comparing against preferred-base bytes.
     return std::vector<std::byte>(address, address + kLivePrefixSize);
 }
 

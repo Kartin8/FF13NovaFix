@@ -158,7 +158,7 @@ bool OpenFromGameText(
     const NativeApi api = Api();
     std::wstring initialWide;
     if (!detail::GameTextToWideString(api, initialText, initialWide)) {
-        Log("Initial text conversion failed: opening empty editor");
+        LogWarning("Initial text conversion failed: opening empty editor");
         initialWide.clear();
     }
     return Open(api, initialWide, maximumCharacters);

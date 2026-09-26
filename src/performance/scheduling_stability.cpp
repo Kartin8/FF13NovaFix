@@ -1,6 +1,5 @@
 #include "performance/scheduling_stability.h"
 
-#include "diagnostics/log.h"
 #include "compat/platform.h"
 #include "settings/performance_settings.h"
 
@@ -28,11 +27,6 @@ using SetThreadInformationFn = BOOL (WINAPI*)(HANDLE, int, void*, DWORD);
 INIT_ONCE g_initializeOnce = INIT_ONCE_STATIC_INIT;
 bool g_enabled = false;
 std::atomic_bool g_supported{false};
-std::atomic_bool g_processPriority{false};
-std::atomic_bool g_processPower{false};
-std::atomic_bool g_processPriorityDriftActive{false};
-std::atomic_bool g_threadPriority{false};
-std::atomic_bool g_threadPower{false};
 SetThreadInformationFn g_setThreadInformation = nullptr;
 ULONGLONG g_lastProcessRefresh{};
 
@@ -42,16 +36,16 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID, PVOID*) {
         return TRUE;
     }
     if (compat::CurrentEnvironment().host != compat::Host::Windows) {
-        Log("Scheduling stability skipped: host=Wine/Proton");
         return TRUE;
     }
     g_supported.store(true, std::memory_order_relaxed);
 
     const HANDLE process = GetCurrentProcess();
     const DWORD priority = GetPriorityClass(process);
-    if ((priority == IDLE_PRIORITY_CLASS || priority == BELOW_NORMAL_PRIORITY_CLASS ||
-         priority == NORMAL_PRIORITY_CLASS) && SetPriorityClass(process, ABOVE_NORMAL_PRIORITY_CLASS)) {
-        g_processPriority.store(true, std::memory_order_relaxed);
+    if (priority == IDLE_PRIORITY_CLASS ||
+        priority == BELOW_NORMAL_PRIORITY_CLASS ||
+        priority == NORMAL_PRIORITY_CLASS) {
+        SetPriorityClass(process, ABOVE_NORMAL_PRIORITY_CLASS);
     }
 
     const HMODULE kernel = GetModuleHandleW(L"kernel32.dll");
@@ -61,13 +55,10 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID, PVOID*) {
         GetProcAddress(kernel, "SetThreadInformation")) : nullptr;
     PowerThrottlingState state{
         kPowerThrottlingCurrentVersion, kPowerThrottlingExecutionSpeed, 0};
-    if (setProcessInformation && setProcessInformation(
-            process, kProcessPowerThrottlingClass, &state, sizeof(state))) {
-        g_processPower.store(true, std::memory_order_relaxed);
+    if (setProcessInformation) {
+        setProcessInformation(
+            process, kProcessPowerThrottlingClass, &state, sizeof(state));
     }
-    Log("Scheduling stability: process-priority=%d power-throttling=%d",
-        g_processPriority.load(std::memory_order_relaxed),
-        g_processPower.load(std::memory_order_relaxed));
     return TRUE;
 }
 
@@ -84,21 +75,7 @@ void PumpSchedulingStability() {
         if ((processPriority == IDLE_PRIORITY_CLASS ||
              processPriority == BELOW_NORMAL_PRIORITY_CLASS ||
              processPriority == NORMAL_PRIORITY_CLASS)) {
-            if (!g_processPriorityDriftActive.exchange(
-                    true, std::memory_order_acq_rel)) {
-                Log("Scheduling stability detected process-priority drift: observed=0x%08lX expected=0x%08lX",
-                    processPriority, ABOVE_NORMAL_PRIORITY_CLASS);
-            }
-            if (SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS)) {
-                g_processPriority.store(true, std::memory_order_relaxed);
-                if (g_processPriorityDriftActive.exchange(
-                        false, std::memory_order_acq_rel)) {
-                    Log("Scheduling stability restored game process priority");
-                }
-            }
-        } else if (processPriority != 0u) {
-            g_processPriorityDriftActive.store(
-                false, std::memory_order_release);
+            SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
         }
     }
 
@@ -108,23 +85,14 @@ void PumpSchedulingStability() {
     lastThreadRefresh = now;
     const int priority = GetThreadPriority(thread);
     if (priority != THREAD_PRIORITY_ERROR_RETURN &&
-        priority < THREAD_PRIORITY_ABOVE_NORMAL &&
-        SetThreadPriority(thread, THREAD_PRIORITY_ABOVE_NORMAL)) {
-        if (g_threadPriority.exchange(true, std::memory_order_relaxed)) {
-            Log("Scheduling stability restored game render-thread priority");
-        }
+        priority < THREAD_PRIORITY_ABOVE_NORMAL) {
+        SetThreadPriority(thread, THREAD_PRIORITY_ABOVE_NORMAL);
     }
     PowerThrottlingState state{
         kPowerThrottlingCurrentVersion, kPowerThrottlingExecutionSpeed, 0};
-    if (g_setThreadInformation && g_setThreadInformation(
-            thread, kThreadPowerThrottlingClass, &state, sizeof(state))) {
-        g_threadPower.store(true, std::memory_order_relaxed);
-    }
-    static std::atomic_bool logged{false};
-    if (!logged.exchange(true, std::memory_order_relaxed)) {
-        Log("Render scheduling: priority=%d power-throttling=%d",
-            g_threadPriority.load(std::memory_order_relaxed),
-            g_threadPower.load(std::memory_order_relaxed));
+    if (g_setThreadInformation) {
+        g_setThreadInformation(
+            thread, kThreadPowerThrottlingClass, &state, sizeof(state));
     }
 }
 

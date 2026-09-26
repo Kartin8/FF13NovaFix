@@ -166,16 +166,15 @@ int __fastcall CompanyLogoHook(void* companyLogo, void*) {
             }
         }
         if (logOpenFailure) {
-            Log("LR startup notification open failed; intro transition pending retry");
+            LogWarning("LR startup notification open failed; intro transition pending retry");
         }
         return 1;
     }
 
     if (!signature.empty() &&
         !settings::SaveLoadedModulesNotificationSignature(signature)) {
-        Log("LR loaded-module signature could not be persisted");
+        LogWarning("LR loaded-module signature could not be persisted");
     }
-    Log("LR loaded-module report acknowledged: releasing the intro movie transition");
     return running;
 }
 

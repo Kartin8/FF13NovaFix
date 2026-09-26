@@ -160,9 +160,7 @@ HMODULE LoadBackendLibrary(const std::wstring& filePath, DWORD* error) {
     if (module) return module;
 
     const DWORD safeError = GetLastError();
-    // Older loader implementations may reject the search flags. The altered
-    // search path retry keeps the backend directory first while still allowing
-    // chained renderers to resolve legacy PATH dependencies.
+    // Retry for loaders that reject modern DLL search flags.
     module = LoadLibraryExW(
         filePath.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
     if (!module && error) {

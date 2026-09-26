@@ -1,6 +1,5 @@
 #include "settings/graphics_settings.h"
 
-#include "diagnostics/log.h"
 #include "common/module_path.h"
 #include "game/core/game_profile.h"
 #include "settings/config_path.h"
@@ -391,8 +390,7 @@ bool Save(const GraphicsSettings& requested) {
     const bool synchronizeLauncher = configSaved &&
         value.overrideLauncherGraphics && launcherSettingsChanged &&
         g_launcherIntegration.load(std::memory_order_acquire);
-    const bool officialSetupSynchronized =
-        !synchronizeLauncher || SynchronizeLauncher(value);
+    if (synchronizeLauncher) (void)SynchronizeLauncher(value);
     if (configSaved) {
         AcquireSRWLockExclusive(&g_settingsLock);
         g_stored = value;
@@ -400,14 +398,6 @@ bool Save(const GraphicsSettings& requested) {
         g_activeGeneration.fetch_add(1, std::memory_order_release);
         ReleaseSRWLockExclusive(&g_settingsLock);
     }
-    Log("Graphics settings saved: config=%d launcher=%d override=%d mode=%u monitor=%u size=%ux%u shadow=%u MSAA=%u scissor-fix=%d ui-vb=%d screen-align=%d AF=%u xiii2-mip-lod=%+.2f xiii2-shaders=%d xiii2-shadow-pipeline=%d",
-        configSaved, officialSetupSynchronized, value.overrideLauncherGraphics, static_cast<unsigned>(value.displayMode),
-        value.monitorIndex, value.width, value.height, value.shadowResolution, value.msaaSamples,
-        value.highResolutionScissorFix, value.optimizeUiVertexBuffer,
-        value.correctScreenSpaceAlignment, value.anisotropicFiltering,
-        value.xiii2MipLodBias,
-        value.xiii2ShaderCorrections,
-        value.xiii2OptimizeShadowPipeline);
     return configSaved;
 }
 

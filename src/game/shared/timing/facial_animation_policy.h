@@ -11,10 +11,8 @@ inline constexpr std::int32_t kXiii2Reference30HzTicks = 10010;
 inline constexpr std::int32_t kFacialReference60HzTicks =
     kEngineTicksPerSecond / 60;
 
-// Converts the measured render interval into the time unit consumed by XIII's
-// facial controller. A zero result means that the game is not currently
-// rendering above the requested title-specific facial cadence and no
-// correction should be applied
+// Convert measured frame time to the tick unit used by XIII facial animation.
+// Return 0 when no correction is needed at the requested cadence
 std::int32_t ExpectedTicks(float frameMilliseconds, unsigned targetRate);
 
 // The games advance facial morph transitions with per-update constants. The
@@ -29,10 +27,8 @@ float TimeCorrectedAlpha(float referenceAlpha, std::int32_t gameTicks,
                          std::int32_t referenceTicks =
                              kFacialReference60HzTicks);
 
-// XIII-2 can deliver an authored 29.97-Hz task quantum even while NovaFix
-// presents more often. Its facial interpolation must use the validated wall
-// delta owned by the frame-pacing layer, without modifying the game's timing
-// payload or any other task
+// XIII-2 can keep feeding facial animation a 29.97 Hz task delta above 30 FPS.
+// Use the frame-pacing wall delta for facial interpolation only, without changing the game's task timing
 std::int32_t ResolveFacialTicks(std::int32_t gameTicks,
                                std::uint32_t wallTicks,
                                bool useWallDelta,

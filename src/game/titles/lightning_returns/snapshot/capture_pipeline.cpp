@@ -128,10 +128,8 @@ void UpdatePhotoModeHudToggle() {
     g_photoModeYWasDown = yDown;
 }
 
-// GuiActionObject::draw uses ECX for the object, ESI for inherited render
-// state, and one stack argument. A naked gate preserves that non-standard
-// native ABI exactly while omitting the whole White GUI traversal for the
-// capture frame or while the player has hidden the photo-mode HUD
+// GuiActionObject::draw gets the object in ECX, inherited render state in ESI and one stack argument
+// Keep that calling convention and skip the White GUI draw while capturing or when the photo-mode HUD is hidden
 void __declspec(naked) GuiDrawHook() {
     __asm {
         cmp dword ptr [g_guiSuppressionReasons], 0

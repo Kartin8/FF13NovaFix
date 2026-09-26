@@ -1,6 +1,5 @@
 #include "input/direct_input/direct_input_state.h"
 
-#include "diagnostics/log.h"
 #include "overlay/input/overlay_hotkey.h"
 #include "settings/input_settings.h"
 
@@ -13,19 +12,13 @@
 namespace novafix::input {
 
 DirectInputStateTracker::Sample DirectInputStateTracker::BeginSample(
-    IDirectInputDevice8A* device, DWORD size, const void* data,
-    unsigned deviceKind) {
+    DWORD size, const void* data) {
     Sample sample{};
     if (!data) return sample;
 
     sample.current = static_cast<const unsigned char*>(data);
     sample.size = (std::min)(size, static_cast<DWORD>(previous_.size()));
     sample.comparable = hasPrevious_ && previousSize_ == sample.size;
-    if (!loggedSize_) {
-        Log("DirectInput state size: object=%p kind=%u size=%lu",
-            device, deviceKind, size);
-        loggedSize_ = true;
-    }
     return sample;
 }
 
@@ -37,9 +30,8 @@ void DirectInputStateTracker::CommitSample(const Sample& sample) {
 }
 
 DirectInputStateObservation DirectInputStateTracker::ObserveKeyboard(
-    IDirectInputDevice8A* device, DWORD size, const void* data,
-    unsigned deviceKind) {
-    const Sample sample = BeginSample(device, size, data, deviceKind);
+    IDirectInputDevice8A*, DWORD size, const void* data, unsigned) {
+    const Sample sample = BeginSample(size, data);
     DirectInputStateObservation observation{};
     observation.comparable = sample.comparable;
 
@@ -64,9 +56,8 @@ DirectInputStateObservation DirectInputStateTracker::ObserveKeyboard(
 }
 
 DirectInputStateObservation DirectInputStateTracker::ObserveMouse(
-    IDirectInputDevice8A* device, DWORD size, const void* data,
-    unsigned deviceKind) {
-    const Sample sample = BeginSample(device, size, data, deviceKind);
+    IDirectInputDevice8A*, DWORD size, const void* data, unsigned) {
+    const Sample sample = BeginSample(size, data);
     DirectInputStateObservation observation{};
     observation.comparable = sample.comparable;
 
@@ -93,9 +84,9 @@ DirectInputStateObservation DirectInputStateTracker::ObserveMouse(
 }
 
 DirectInputStateObservation DirectInputStateTracker::ObserveController(
-    IDirectInputDevice8A* device, DWORD size, const void* data,
-    unsigned deviceKind, bool classifyChange) {
-    const Sample sample = BeginSample(device, size, data, deviceKind);
+    IDirectInputDevice8A*, DWORD size, const void* data,
+    unsigned, bool classifyChange) {
+    const Sample sample = BeginSample(size, data);
     DirectInputStateObservation observation{};
     observation.comparable = sample.comparable;
     if (sample.current && classifyChange && sample.comparable) {
@@ -158,7 +149,6 @@ void DirectInputStateTracker::NeutralizeController(
 void DirectInputStateTracker::Reset() {
     previousSize_ = 0u;
     hasPrevious_ = false;
-    loggedSize_ = false;
     axes_.Reset();
     neutralAxes_.fill(0);
     hasNeutralAxes_ = false;

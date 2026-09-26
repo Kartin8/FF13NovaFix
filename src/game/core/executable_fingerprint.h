@@ -7,8 +7,8 @@
 
 namespace novafix::game {
 
- // Produces a stable on-disk PE identity. The .text hash covers raw section bytes
- // plus virtual zero padding, so ASLR and the image's mapped base cannot affect it
+// Build a stable PE fingerprint from the file on disk.
+// The .text hash includes raw bytes plus virtual zero padding, so ASLR/base address don't affect it.
 std::optional<ImageFingerprint> FingerprintExecutableFile(
     std::wstring_view filePath);
 

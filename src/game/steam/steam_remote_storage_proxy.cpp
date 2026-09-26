@@ -59,9 +59,7 @@ public:
                      name, size);
             return false;
         }
-        const bool queued = worker::RecordLocalWrite(name, data, size);
-        Log("Steam Cloud save committed locally: %s bytes=%d remote=%s",
-            name, size, queued ? "queued" : "unavailable");
+        (void)worker::RecordLocalWrite(name, data, size);
         return true;
     }
 

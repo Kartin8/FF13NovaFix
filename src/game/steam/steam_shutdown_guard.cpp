@@ -49,10 +49,9 @@ void __cdecl ProtectedShutdown() {
             "inside Steam: local saves and the retry queue are durable");
     }
     g_requested.store(true, std::memory_order_release);
-    // Retail sgw.dll calls SteamAPI_Shutdown before unregistering its three
-    // callbacks. Defer the real call until its final (1101) callback has been
-    // unregistered. If the callback contract was unavailable, preserve the
-    // original behavior rather than leaking a live Steam API session
+    // Retail sgw.dll calls SteamAPI_Shutdown before unregistering its three callbacks.
+    // Delay the real shutdown until callback 1101 is unregistered. If that callback was
+    // never captured, keep the original shutdown behavior instead of leaving Steam initialized.
     if (!g_statsReceivedCallback) CompleteDeferred();
 }
 

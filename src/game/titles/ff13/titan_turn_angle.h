@@ -20,8 +20,8 @@ inline float ComputeYawDeadZone(float nativeThreshold,
     return nativeThreshold * ratio;
 }
 
-// The native acos(dot / lengths) loses small turns when its float quotient
-// rounds to 1. Keep the same signed, planar angle without forming that quotient
+// acos(dot / lengths) loses small turns when the float quotient rounds to 1
+// Compute the same signed planar angle without forming that quotient
 inline bool TryComputeTurnAngle(const std::array<float, 3>& desired,
                                 const std::array<float, 3>& current,
                                 const std::array<float, 3>& up,
@@ -56,7 +56,7 @@ inline bool TryComputeTurnAngle(const std::array<float, 3>& desired,
     const double sine = dot(cross(from, to), axis) / std::sqrt(axisSquared);
     const double cosine = dot(from, to);
     const double magnitude = std::atan2(std::fabs(sine), cosine);
-    // Native uses crossDot < 0: an exact half-turn, including -0, chooses +pi
+    // Native code uses crossDot < 0, so an exact half-turn (including -0) resolves to +pi
     const float result = static_cast<float>(sine < 0.0 ? -magnitude : magnitude);
     if (!std::isfinite(result)) return false;
     angle = result;

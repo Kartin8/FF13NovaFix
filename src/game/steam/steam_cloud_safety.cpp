@@ -212,7 +212,7 @@ void* __cdecl ProtectedRemoteStorage() {
     })) {
         if (!g_remoteStorageExceptionActive.exchange(
                 true, std::memory_order_acq_rel)) {
-            Log("SteamRemoteStorage raised an exception: sgw.dll will use LOCAL_SAVE "
+            LogWarning("SteamRemoteStorage raised an exception: sgw.dll will use LOCAL_SAVE "
                 "until the accessor recovers");
         }
         return nullptr;
@@ -233,7 +233,7 @@ void __cdecl ProtectedRegisterCallback(void* callback, int callbackId) {
     })) {
         if (!g_callbackRegistrationExceptionActive.exchange(
                 true, std::memory_order_acq_rel)) {
-            Log("sgw.dll Steam callback registration %d raised an exception; repeats suppressed until recovery",
+            LogWarning("sgw.dll Steam callback registration %d raised an exception; repeats suppressed until recovery",
                 callbackId);
         }
     } else {
@@ -249,7 +249,7 @@ void __cdecl ProtectedUnregisterCallback(void* callback) {
         })) {
             if (!g_callbackUnregistrationExceptionActive.exchange(
                     true, std::memory_order_acq_rel)) {
-                Log("sgw.dll Steam callback unregistration raised an exception; repeats suppressed until recovery");
+                LogWarning("sgw.dll Steam callback unregistration raised an exception; repeats suppressed until recovery");
             }
         } else {
             g_callbackUnregistrationExceptionActive.store(
@@ -267,7 +267,7 @@ void __cdecl ProtectedRunCallbacks() {
         g_achievementFailures.fetch_add(1, std::memory_order_relaxed);
         if (!g_runCallbacksExceptionActive.exchange(
                 true, std::memory_order_acq_rel)) {
-            Log("SteamAPI_RunCallbacks raised an exception inside sgw.dll: "
+            LogWarning("SteamAPI_RunCallbacks raised an exception inside sgw.dll: "
                 "damaged callback dispatch contained; repeats suppressed until recovery");
         }
     } else {
@@ -378,9 +378,6 @@ bool FlushPendingAchievements(void* bridgeObject, HMODULE bridge,
     }
 
     achievement_queue::Complete(completed);
-    for (const std::string& name : completed) {
-        Log("Steam achievement committed safely: %s", name.c_str());
-    }
     return !completed.empty();
 }
 
@@ -464,13 +461,12 @@ void HardenNoopCallbacks(void* bridgeObject) {
         })) {
             ++detached;
         } else {
-            Log("Unable to detach sgw.dll no-op Steam callback at +0x%zX", offset);
+            LogWarning("Unable to detach sgw.dll no-op Steam callback at +0x%zX", offset);
         }
     }
     g_hardenedStatsObject = stats;
     if (detached != 0) {
         g_suppressedCallbacks.fetch_add(detached, std::memory_order_relaxed);
-        Log("sgw.dll no-op post-achievement callbacks detached: %u", detached);
     }
 }
 
@@ -489,8 +485,7 @@ bool __fastcall ReliableAchievement(void* self, void*, int index) {
     const ULONGLONG delay =
         achievement_policy::RetryDelayMilliseconds(storeAttempted);
     g_nextAchievementRetry = GetTickCount64() + delay;
-    // The game treats achievements as one-shot events. Once NovaFix has made
-    // the request durable, it must report success even while Steam is offline
+    // Durable requests succeed locally even while Steam is offline.
     return true;
 }
 
@@ -613,9 +608,7 @@ void TryInstall() {
     g_active.store(true, std::memory_order_release);
     g_installing.clear(std::memory_order_release);
 
-    // In the usual retail startup the bridge already exists by the first D3D9
-    // initialization. Install immediately so the safety path is independent
-    // of presentation modes that intentionally bypass the normal feature pump
+    // Install independently of the presentation feature pump.
     void* bridgeObject{};
     if (BridgeAndContract(bridge, bridgeObject)) {
         TryInstallAchievementHook(bridgeObject);

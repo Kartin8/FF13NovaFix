@@ -97,12 +97,6 @@ NativeMode DesiredModeNow() {
     return xiii2_qte_prompts::ResolveMode(requested);
 }
 
-const char* ModeName(NativeMode mode) {
-    if (mode == NativeMode::Keyboard) return "keyboard";
-    if (mode == NativeMode::Controller) return "controller";
-    return "unknown";
-}
-
 struct AtlasStatus {
     void* object{};
     std::uint32_t state{};
@@ -216,10 +210,6 @@ void ApplyPendingMode() {
     }
 
     xiii2_prompt_layout_registry::QueueVisibleReflow();
-
-    Log("XIII-2 button prompts switched: mode=%s source=%s preference=%u atlas-path=native visible-reflow=queued",
-        ModeName(desired), input::InputSourceName(activity),
-        static_cast<unsigned>(preference));
 }
 
 int __fastcall InputUpdateHook(void* manager, void*, int ticks) {

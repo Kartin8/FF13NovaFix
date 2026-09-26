@@ -160,8 +160,8 @@ HRESULT WINAPI D3DXCreateTextureHook(
     }
     if (directManaged) directManaged->Release();
 
-    // If DXT1 fails, let D3DX decode to ARGB at 1280x720 to preserve movie UVs
-    // Keep MANAGED: this hook does not own the texture's Reset lifetime
+    // If DXT1 creation fails, let D3DX decode to ARGB at 1280x720 so movie UVs stay unchanged
+    // Keep the texture MANAGED because this hook does not handle its Reset lifetime
     IDirect3DTexture9* argbManaged{};
     const HRESULT argbManagedResult = CreateDirect(
         device, width, height, mipLevels, usage, D3DFMT_A8R8G8B8, pool,

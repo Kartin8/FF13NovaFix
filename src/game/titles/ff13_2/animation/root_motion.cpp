@@ -21,14 +21,12 @@
 namespace novafix::game::xiii2_root_motion {
 namespace {
 
-// UPDATE_ROOT_MOVE consumes the global 10010-tick (29.97 Hz) quantum directly
-// Once presentation is decoupled it runs every rendered frame, advancing
-// motion too quickly while scene and camera timing remain fixed
+// UPDATE_ROOT_MOVE reads the global 10010-tick (29.97 Hz) step directly.
+// Once presentation is decoupled it runs every rendered frame, making root motion too fast while scene/camera timing stays fixed.
 constexpr std::uint32_t kRootMoveTaskRva = 0x007F1800u;
 constexpr std::uint32_t kGlobalQuantumRva = 0x01FA8B30u;
-// Keep the complete seven-byte F6 /0 instruction. Ending this contract before
-// its 0x80 immediate splits the instruction in the trampoline and raises
-// STATUS_PRIVILEGED_INSTRUCTION as soon as UPDATE_ROOT_MOVE executes
+// Keep the full seven-byte F6 /0 instruction in the stolen bytes.
+// Cutting it before the 0x80 immediate breaks the trampoline and raises STATUS_PRIVILEGED_INSTRUCTION
 constexpr std::array<std::uint8_t, 10> kRootMoveTaskPrefix{
     0x56, 0x8B, 0xF1, 0xF6, 0x86, 0x71, 0x02, 0x00, 0x00, 0x80};
 

@@ -1,6 +1,5 @@
 #include "settings/performance_settings.h"
 
-#include "diagnostics/log.h"
 #include "settings/config_path.h"
 #include "settings/ini_value.h"
 #include "settings/named_values.h"
@@ -115,14 +114,6 @@ BOOL CALLBACK Load(PINIT_ONCE, PVOID, PVOID*) {
     Normalize(loaded);
     g_active = loaded;
     g_stored = loaded;
-    Log("Performance settings: presentation-controls=%d limit=%u smart-hotplug=%d vsync=%u refresh=%u triple=%u scheduling=%d high-fps-correctness=%d xiii2-state-submission=%d fps-counter=%d startup-sound=%d menu-sounds=%d module-notification=%u d3d9-backend=%u",
-        presentationControls, loaded.frameRateLimit, loaded.smartControllerHotplug,
-        static_cast<unsigned>(loaded.vsyncMode), loaded.refreshRate,
-        static_cast<unsigned>(loaded.tripleBuffering), loaded.schedulingStability,
-        loaded.highFpsCorrectness, loaded.xiii2OptimizeStateSubmission,
-        loaded.showFpsCounter, loaded.startupSound, loaded.menuSounds,
-        static_cast<unsigned>(loaded.loadedModulesNotificationMode),
-        static_cast<unsigned>(loaded.d3d9Backend));
     return TRUE;
 }
 
@@ -223,15 +214,6 @@ bool SavePerformance(const PerformanceSettings& requested) {
         g_activeGeneration.fetch_add(1, std::memory_order_release);
         ReleaseSRWLockExclusive(&g_lock);
     }
-    Log("Performance settings saved: config=%d presentation-controls=%d limit=%u smart-hotplug=%d vsync=%u refresh=%u triple=%u scheduling=%d high-fps-correctness=%d xiii2-state-submission=%d fps-counter=%d startup-sound=%d menu-sounds=%d module-notification=%u d3d9-backend=%u",
-        saved, presentationControls, value.frameRateLimit,
-        value.smartControllerHotplug,
-        static_cast<unsigned>(value.vsyncMode), value.refreshRate,
-        static_cast<unsigned>(value.tripleBuffering), value.schedulingStability,
-        value.highFpsCorrectness, value.xiii2OptimizeStateSubmission,
-        value.showFpsCounter, value.startupSound, value.menuSounds,
-        static_cast<unsigned>(value.loadedModulesNotificationMode),
-        static_cast<unsigned>(value.d3d9Backend));
     return saved;
 }
 

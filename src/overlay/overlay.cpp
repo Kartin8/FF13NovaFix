@@ -354,7 +354,7 @@ void DrawOverlay(bool drawPanel, bool drawCounter,
 void SelectPresentationWindow(HWND window) {
     if (!window || !IsWindow(window)) return;
     g_window = window;
-    Log("Presentation window selected without WndProc subclass: hwnd=%p", window);
+    LogDebug("Presentation window has no WndProc subclass: hwnd=%p", window);
 }
 
 HWND PresentationWindow() {

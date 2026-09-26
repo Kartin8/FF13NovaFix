@@ -1,7 +1,6 @@
 #include "input/direct_input/direct_input.h"
 
 #include "diagnostics/hook_profiler.h"
-#include "diagnostics/log.h"
 #include "input/activity.h"
 #include "input/direct_input/direct_input_diagnostics.h"
 #include "input/direct_input/direct_input_state.h"
@@ -475,8 +474,6 @@ HRESULT STDMETHODCALLTYPE CreateDeviceHook(IDirectInput8A* self, REFGUID guid,
         if (kind == DeviceKind::Controller) {
             direct_input_diagnostics::LogControllerIdentity(*output);
         }
-        Log("DirectInput device: object=%p kind=%u guid=%08lX-%04X-%04X", *output,
-            static_cast<unsigned>(kind), guid.Data1, guid.Data2, guid.Data3);
     }
     return result;
 }
@@ -533,9 +530,6 @@ void NotifyDirectInputFocusChanged(bool focused) {
         }
         ReleaseSRWLockExclusive(&g_lock);
     }
-    Log("Game input: state=%s focus=%s",
-        focused ? "active" : "suspended",
-        focused ? "gained" : "lost");
 }
 
 } // namespace novafix::input

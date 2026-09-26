@@ -143,9 +143,7 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID parameter, PVOID*) {
         profile.title == game::Title::FinalFantasyXIII);
     if (profile.title == game::Title::Unknown) return TRUE;
 
-    if (compat::IsWine()) {
-        Log("Native crash dump filter skipped on Wine/Proton");
-    } else {
+    if (!compat::IsWine()) {
         diagnostics::crash_dumps::Install(
             g_attachedModule.load(std::memory_order_acquire));
     }
@@ -176,13 +174,13 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID parameter, PVOID*) {
         nativeNotificationsSupported
             ? &compat::native_notifications::QueueEx : nullptr);
 
-    // Load add-ons outside the loader lock, before normal hooks
+    // Add-ons initialize outside the loader lock.
     compat::addon_loader::SetReuseExistingDirectoryPolicy(
         profile.title == game::Title::LightningReturns);
     compat::addon_storage::Configure(settings::storage::ModuleDirectory());
     compat::addon_loader::Initialize();
 
-    // Native startup controllers are created early; queue the notice before D3D hooks
+    // Queue startup notices before D3D hooks.
     if (profile.title == game::Title::LightningReturns ||
         profile.title == game::Title::FinalFantasyXIII ||
         profile.title == game::Title::FinalFantasyXIII2) {
@@ -196,7 +194,7 @@ BOOL CALLBACK Initialize(PINIT_ONCE, PVOID parameter, PVOID*) {
         game::ff13_nautilus_crash_fix::Install();
     } else if (profile.title == game::Title::FinalFantasyXIII2) {
         game::steam_cloud::InstallEarly();
-        // The atlas hook must catch the startup allocation before Direct3DCreate9 returns
+        // Install before the startup atlas allocation.
         if (compat::compatibility::AllowsNovaFixChanges()) {
             game::xiii2_shadow_fixed_depth::Pump();
             game::xiii2_shadow_direct_atlas::Pump();
@@ -225,8 +223,7 @@ void Attach(HMODULE module) {
         title != game::Title::LightningReturns);
     settings::SetLauncherIntegrationEnabled(title == game::Title::FinalFantasyXIII);
     if (title != game::Title::Unknown) {
-        // Install before the game can cache a dynamically resolved D3D factory
-        // Logging remains buffered until Initialize runs outside the loader lock
+        // Install before the game caches a resolved D3D factory.
         early_d3d_dispatch::Install();
     }
     if (title == game::Title::FinalFantasyXIII ||
@@ -236,15 +233,13 @@ void Attach(HMODULE module) {
     }
     if (title == game::Title::FinalFantasyXIII ||
         title == game::Title::FinalFantasyXIII2) {
-        // Install before the entry point; Crystal Tools reads graphics arguments before D3D9 initialization
+        // Crystal Tools reads graphics arguments before D3D9 initialization.
         launcher::InstallCommandLineHooks();
     }
 }
 
 void Detach() {
-    // The module is pinned after initialization. Let the process reclaim it and
-    // its optional exception filter at exit; restoring a foreign filter during
-    // loader teardown can point at a module that has already detached
+    // The pinned module and exception filter are reclaimed at process exit.
     g_attachedTitle.store(game::Title::Unknown, std::memory_order_release);
 }
 
