@@ -33,6 +33,7 @@ public:
         unsigned deviceKind, bool classifyChange);
 
     void NeutralizeController(DWORD size, void* data) const;
+    void NeutralizeControllerMovement(DWORD size, void* data) const;
     void Reset();
 
 private:

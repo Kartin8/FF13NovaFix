@@ -1,5 +1,6 @@
 #include "game/titles/ff13_2/ui/prompt_mode_manager.h"
 
+#include "compat/addons/native_notifications.h"
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
 #include "game/core/game_profile.h"
@@ -225,6 +226,7 @@ int __fastcall InputUpdateHook(void* manager, void*, int ticks) {
         hook_profiler::Scope originalTiming(originalPoint);
         result = original(manager, ticks);
     }
+    compat::native_notifications::Pump();
     xiii2_prompt_layout_registry::CompleteVisibleReflow();
     ApplyPendingMode();
     xiii2_qte_prompts::FlushPendingAtlas();

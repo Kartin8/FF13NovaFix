@@ -1,5 +1,6 @@
 #include "input/direct_input/direct_input.h"
 
+#include "compat/addons/native_notifications.h"
 #include "diagnostics/hook_profiler.h"
 #include "input/activity.h"
 #include "input/direct_input/direct_input_diagnostics.h"
@@ -162,6 +163,79 @@ void SuppressState(IDirectInputDevice8A* object, DeviceKind kind,
     if (!found) DirectInputStateTracker{}.NeutralizeController(size, data);
 }
 
+bool IsMovementKey(DWORD offset) {
+    switch (offset) {
+    case DIK_W:
+    case DIK_A:
+    case DIK_S:
+    case DIK_D:
+    case DIK_UP:
+    case DIK_DOWN:
+    case DIK_LEFT:
+    case DIK_RIGHT:
+    case DIK_NUMPAD8:
+    case DIK_NUMPAD2:
+    case DIK_NUMPAD4:
+    case DIK_NUMPAD6:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool IsMovementObject(DeviceKind kind, DWORD offset) {
+    if (kind == DeviceKind::Keyboard) return IsMovementKey(offset);
+    if (kind == DeviceKind::Mouse) {
+        return offset == DIMOFS_X || offset == DIMOFS_Y ||
+               offset == DIMOFS_Z;
+    }
+    if (kind != DeviceKind::Controller) return false;
+    return offset == DIJOFS_X || offset == DIJOFS_Y ||
+           offset == DIJOFS_Z || offset == DIJOFS_RX ||
+           offset == DIJOFS_RY || offset == DIJOFS_RZ ||
+           offset == DIJOFS_SLIDER(0) || offset == DIJOFS_SLIDER(1) ||
+           (offset >= DIJOFS_POV(0) && offset <= DIJOFS_POV(3));
+}
+
+void SuppressMovementState(IDirectInputDevice8A* object, DeviceKind kind,
+                           DWORD size, void* data) {
+    if (!data) return;
+    if (kind == DeviceKind::Keyboard) {
+        auto* const keys = static_cast<unsigned char*>(data);
+        constexpr std::array<unsigned, 12> movementKeys{
+            DIK_W, DIK_A, DIK_S, DIK_D,
+            DIK_UP, DIK_DOWN, DIK_LEFT, DIK_RIGHT,
+            DIK_NUMPAD8, DIK_NUMPAD2, DIK_NUMPAD4, DIK_NUMPAD6};
+        for (const unsigned key : movementKeys) {
+            if (key < size) keys[key] = 0u;
+        }
+        return;
+    }
+    if (kind == DeviceKind::Mouse) {
+        if (size >= sizeof(DIMOUSESTATE)) {
+            auto* const mouse = static_cast<DIMOUSESTATE*>(data);
+            mouse->lX = 0;
+            mouse->lY = 0;
+            mouse->lZ = 0;
+        }
+        return;
+    }
+    if (kind != DeviceKind::Controller) return;
+
+    bool found = false;
+    AcquireSRWLockShared(&g_lock);
+    for (const auto& record : g_devices) {
+        if (record.object != object) continue;
+        record.state.NeutralizeControllerMovement(size, data);
+        found = true;
+        break;
+    }
+    ReleaseSRWLockShared(&g_lock);
+    if (!found) {
+        DirectInputStateTracker{}.NeutralizeControllerMovement(size, data);
+    }
+}
+
 bool IsTransientFocusFailure(HRESULT result) {
     return result == DIERR_INPUTLOST || result == DIERR_NOTACQUIRED ||
            result == DIERR_OTHERAPPHASPRIO;
@@ -264,6 +338,7 @@ HRESULT STDMETHODCALLTYPE GetDeviceStateHook(IDirectInputDevice8A* self, DWORD s
         diagnostic, DiagnosticClass(knownKind), FAILED(result),
         IsTransientFocusFailure(result));
     const bool suppressed = GameInputSuppressed() ||
+        compat::native_notifications::BlocksGameplayInput() ||
         (knownKind == DeviceKind::Controller &&
          overlay::CapturesControllerInput());
     if (suppressed && data &&
@@ -273,6 +348,10 @@ HRESULT STDMETHODCALLTYPE GetDeviceStateHook(IDirectInputDevice8A* self, DWORD s
         return DI_OK;
     }
     if (FAILED(result) || !data) return result;
+
+    if (compat::native_notifications::BlocksGameplayMovement()) {
+        SuppressMovementState(self, knownKind, size, data);
+    }
 
     StateObservation observation{};
     {
@@ -313,6 +392,7 @@ HRESULT STDMETHODCALLTYPE GetDeviceDataHook(IDirectInputDevice8A* self, DWORD ob
     }
     const DeviceKind knownKind = FindDeviceKind(self);
     const bool suppressed = GameInputSuppressed() ||
+        compat::native_notifications::BlocksGameplayInput() ||
         (knownKind == DeviceKind::Controller &&
          overlay::CapturesControllerInput());
     if (suppressed && count &&
@@ -330,6 +410,25 @@ HRESULT STDMETHODCALLTYPE GetDeviceDataHook(IDirectInputDevice8A* self, DWORD ob
     if (deviceState.discard) {
         *count = 0;
         return result;
+    }
+
+    if (compat::native_notifications::BlocksGameplayMovement() && data &&
+        objectSize >= sizeof(DIDEVICEOBJECTDATA)) {
+        DWORD outputIndex = 0u;
+        for (DWORD inputIndex = 0u; inputIndex < *count; ++inputIndex) {
+            auto* const item = reinterpret_cast<DIDEVICEOBJECTDATA*>(
+                reinterpret_cast<unsigned char*>(data) +
+                inputIndex * objectSize);
+            if (IsMovementObject(kind, item->dwOfs)) continue;
+            if (outputIndex != inputIndex) {
+                std::memmove(
+                    reinterpret_cast<unsigned char*>(data) +
+                        outputIndex * objectSize,
+                    item, objectSize);
+            }
+            ++outputIndex;
+        }
+        *count = outputIndex;
     }
 
     bool active = false;

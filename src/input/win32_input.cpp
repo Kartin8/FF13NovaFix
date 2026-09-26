@@ -1,5 +1,6 @@
 #include "input/win32_input.h"
 
+#include "compat/addons/native_notifications.h"
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
 #include "patch/iat_hook.h"
@@ -39,6 +40,8 @@ ShowCursorFn g_gameShowCursor = nullptr;
 GetAsyncKeyStateFn g_gameGetAsyncKeyState = nullptr;
 PeekMessageAFn g_gamePeekMessageA = nullptr;
 PeekMessageWFn g_gamePeekMessageW = nullptr;
+PeekMessageAFn g_systemPeekMessageA = nullptr;
+PeekMessageWFn g_systemPeekMessageW = nullptr;
 
 std::atomic<LONG> g_frozenCursorX{0};
 std::atomic<LONG> g_frozenCursorY{0};
@@ -80,6 +83,26 @@ bool IsConfiguredOverlayHotkey(int key) {
     case VK_INSERT:
     case VK_HOME:
         return IsOverlayHotkeyVirtualKey(key, settings::ActiveInput());
+    default:
+        return false;
+    }
+}
+
+bool IsMovementVirtualKey(int key) {
+    switch (key) {
+    case 'W':
+    case 'A':
+    case 'S':
+    case 'D':
+    case VK_UP:
+    case VK_DOWN:
+    case VK_LEFT:
+    case VK_RIGHT:
+    case VK_NUMPAD8:
+    case VK_NUMPAD2:
+    case VK_NUMPAD4:
+    case VK_NUMPAD6:
+        return true;
     default:
         return false;
     }
@@ -166,14 +189,20 @@ int WINAPI GameShowCursor(BOOL show) {
 
 SHORT WINAPI GameGetAsyncKeyState(int key) {
     if (!g_gameGetAsyncKeyState) return 0;
-    if (GameInputSuppressed() || IsConfiguredOverlayHotkey(key)) return 0;
+    if (GameInputSuppressed() ||
+        compat::native_notifications::BlocksGameplayInput() ||
+        IsConfiguredOverlayHotkey(key) ||
+        (compat::native_notifications::BlocksGameplayMovement() &&
+         IsMovementVirtualKey(key))) {
+        return 0;
+    }
     return g_gameGetAsyncKeyState(key);
 }
 
 template <typename PeekMessageFn>
-BOOL ProcessPeekMessage(PeekMessageFn original, LPMSG message, HWND window,
-                        UINT minimum, UINT maximum, UINT remove,
-                        bool unicodeMessages) {
+BOOL ProcessPeekMessage(PeekMessageFn original, PeekMessageFn system,
+                        LPMSG message, HWND window, UINT minimum,
+                        UINT maximum, UINT remove, bool unicodeMessages) {
     NOVAFIX_PROFILE_SAMPLED_NAMED_SCOPE(
         totalTiming, "hook.win32.peek-message-total", 16u);
     if (!original || !message) return FALSE;
@@ -195,8 +224,9 @@ BOOL ProcessPeekMessage(PeekMessageFn original, LPMSG message, HWND window,
         game::lr_text_editor::HandleInputLanguageMessage(*message)) {
         if ((remove & PM_REMOVE) == 0) {
             MSG discarded{};
-            original(&discarded, window, message->message,
-                     message->message, PM_REMOVE);
+            (system ? system : original)(
+                &discarded, window, message->message,
+                message->message, PM_REMOVE);
         }
         return FALSE;
     }
@@ -230,8 +260,12 @@ BOOL ProcessPeekMessage(PeekMessageFn original, LPMSG message, HWND window,
         game::lr_text_editor::CapturesInput() &&
         IsKeyboardMessage(message->message);
     const bool overlayInput = overlay::CapturesInput() && IsInputMessage(message->message);
+    const bool nativeNotificationInput =
+        compat::native_notifications::BlocksGameplayInput() &&
+        IsInputMessage(message->message);
     const bool backgroundInput = !GameInputHasFocus() && IsInputMessage(message->message);
-    if (!nativeTextInput && !overlayInput && !backgroundInput &&
+    if (!nativeTextInput && !overlayInput && !nativeNotificationInput &&
+        !backgroundInput &&
         !IsOverlayHotkeyMessage(*message)) return TRUE;
 
     if (nativeTextInput) {
@@ -251,8 +285,9 @@ BOOL ProcessPeekMessage(PeekMessageFn original, LPMSG message, HWND window,
         }
         if ((remove & PM_REMOVE) == 0) {
             MSG discarded{};
-            original(&discarded, window, message->message, message->message,
-                     PM_REMOVE);
+            (system ? system : original)(
+                &discarded, window, message->message,
+                message->message, PM_REMOVE);
         }
         return FALSE;
     }
@@ -275,21 +310,23 @@ BOOL ProcessPeekMessage(PeekMessageFn original, LPMSG message, HWND window,
 
     if ((remove & PM_REMOVE) == 0) {
         MSG discarded{};
-        original(&discarded, window, message->message, message->message, PM_REMOVE);
+        (system ? system : original)(
+            &discarded, window, message->message,
+            message->message, PM_REMOVE);
     }
     return FALSE;
 }
 
 BOOL WINAPI GamePeekMessageA(LPMSG message, HWND window, UINT minimum, UINT maximum, UINT remove) {
     return ProcessPeekMessage(
-        g_gamePeekMessageA, message, window, minimum, maximum, remove,
-        false);
+        g_gamePeekMessageA, g_systemPeekMessageA, message, window,
+        minimum, maximum, remove, false);
 }
 
 BOOL WINAPI GamePeekMessageW(LPMSG message, HWND window, UINT minimum, UINT maximum, UINT remove) {
     return ProcessPeekMessage(
-        g_gamePeekMessageW, message, window, minimum, maximum, remove,
-        true);
+        g_gamePeekMessageW, g_systemPeekMessageW, message, window,
+        minimum, maximum, remove, true);
 }
 
 } // namespace
@@ -329,6 +366,13 @@ bool GameInputSuppressed() {
 }
 
 void InstallWin32Hooks() {
+    const HMODULE user32 = GetModuleHandleW(L"USER32.dll");
+    if (user32) {
+        g_systemPeekMessageA = reinterpret_cast<PeekMessageAFn>(
+            GetProcAddress(user32, "PeekMessageA"));
+        g_systemPeekMessageW = reinterpret_cast<PeekMessageWFn>(
+            GetProcAddress(user32, "PeekMessageW"));
+    }
     PatchExecutableImport("USER32.dll", "ClipCursor", reinterpret_cast<void*>(&GameClipCursor),
                           reinterpret_cast<void**>(&g_gameClipCursor));
     PatchExecutableImport("USER32.dll", "SetCursorPos", reinterpret_cast<void*>(&GameSetCursorPos),

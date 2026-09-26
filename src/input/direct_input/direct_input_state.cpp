@@ -146,6 +146,23 @@ void DirectInputStateTracker::NeutralizeController(
     NeutralizeControllerState(data, size, neutral, calibrated);
 }
 
+void DirectInputStateTracker::NeutralizeControllerMovement(
+    DWORD size, void* data) const {
+    if (!data || size < sizeof(DIJOYSTATE)) return;
+    auto* const state = static_cast<DIJOYSTATE*>(data);
+    DirectInputNeutralAxes neutral = neutralAxes_;
+    if (!hasNeutralAxes_) {
+        const auto* current = reinterpret_cast<const std::int32_t*>(state);
+        const bool compact = std::all_of(
+            current, current + neutral.size(),
+            [](std::int32_t value) { return value >= 0 && value <= 255; });
+        neutral.fill(compact ? 128 : 32767);
+    }
+    std::memcpy(state, neutral.data(), sizeof(neutral));
+    std::fill(std::begin(state->rgdwPOV), std::end(state->rgdwPOV),
+              0xFFFFFFFFu);
+}
+
 void DirectInputStateTracker::Reset() {
     previousSize_ = 0u;
     hasPrevious_ = false;
