@@ -6,6 +6,7 @@
 #include "game/core/image_view.h"
 #include "game/titles/ff13_2/ui/gui_aspect.h"
 #include "game/titles/ff13_2/ui/map_alert_vfx.h"
+#include "game/titles/ff13_2/ui/title_vfx_aspect.h"
 #include "game/titles/ff13_2/rendering/movie_aspect.h"
 #include "game/titles/ff13_2/rendering/internal_resolution.h"
 #include "patch/detour32.h"
@@ -196,6 +197,7 @@ BOOL CALLBACK InitializeOnce(PINIT_ONCE, PVOID, PVOID*) {
         xiii2_ui::gui_aspect::RevertMinimapDraw();
         xiii2_movie_aspect::Revert();
         xiii2_ui::gui_aspect::RevertGui();
+        xiii2_ui::title_vfx_aspect::Revert();
         g_vfxCameraProjectionUpdateDetour.RevertAndClear(
             g_originalVfxCameraProjectionUpdate);
         g_sceneCameraPerspectiveDetour.RevertAndClear(
@@ -231,6 +233,7 @@ BOOL CALLBACK InitializeOnce(PINIT_ONCE, PVOID, PVOID*) {
             kVfxCameraProjectionUpdatePrefix,
             reinterpret_cast<void**>(&g_originalVfxCameraProjectionUpdate)) ||
         !xiii2_ui::gui_aspect::InstallDetours(*image) ||
+        !xiii2_ui::title_vfx_aspect::Install(*image) ||
         !xiii2_movie_aspect::InstallPresentDetour(*image)) {
         revertHooks();
         LogWarning("XIII-2 aspect ratio correction disabled: detour installation failed");

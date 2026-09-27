@@ -18,6 +18,9 @@
 #include "game/titles/ff13_2/timing/cutscene_terminal_frame.h"
 #include "game/titles/ff13_2/timing/frame_pacing_runtime.h"
 #include "game/titles/ff13_2/ui/main_menu_frame.h"
+#include "game/titles/ff13_2/ui/battle_hud_layout.h"
+#include "game/titles/ff13_2/ui/crystarium_list.h"
+#include "game/titles/ff13_2/ui/menu_chrome.h"
 #include "game/titles/ff13_2/ui/prompt_mode_manager.h"
 
 #include <windows.h>
@@ -66,11 +69,17 @@ constexpr std::array<BuildDescriptor, 2> kBuilds{{
     },
 }};
 
-constexpr std::array<FeatureDescriptor, 19> kFeatures{{
+constexpr std::array<FeatureDescriptor, 22> kFeatures{{
     {"arbitrary-aspect-ratio", Capability::ArbitraryAspectRatio,
      &xiii2_aspect_ratio::Initialize, nullptr, nullptr},
     {"shared-main-menu-wide-frame", Capability::ArbitraryAspectRatio,
      &xiii2_main_menu_frame::Initialize, nullptr, nullptr},
+    {"battle-hud-vertical-layout", Capability::ArbitraryAspectRatio,
+     &xiii2_battle_hud_layout::Initialize, nullptr, nullptr},
+    {"menu-detail-backing", Capability::ArbitraryAspectRatio,
+     &xiii2_menu_chrome::Initialize, nullptr, nullptr},
+    {"crystarium-character-list", Capability::ArbitraryAspectRatio,
+     &xiii2_crystarium_list::Initialize, nullptr, nullptr},
     {"frame-pacing", Capability::FramePacing,
      &xiii2_frame_pacing_runtime::Initialize,
      &xiii2_frame_pacing_runtime::Pump, nullptr},

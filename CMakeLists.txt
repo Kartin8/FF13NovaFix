@@ -131,6 +131,8 @@ set(NOVAFIX_SOURCES
     src/game/titles/ff13_2/camera/chocobo_race.cpp
     src/game/titles/ff13_2/camera/aspect_ratio.cpp
     src/game/titles/ff13_2/ui/gui_aspect.cpp
+    src/game/titles/ff13_2/ui/battle_hud_layout.cpp
+    src/game/titles/ff13_2/ui/title_vfx_aspect.cpp
     src/game/titles/ff13_2/rendering/movie_aspect.cpp
     src/game/titles/ff13_2/rendering/internal_resolution.cpp
     src/game/titles/ff13_2/ui/map_alert_vfx.cpp
@@ -158,6 +160,8 @@ set(NOVAFIX_SOURCES
     src/game/titles/ff13_2/ui/qte/qte_visual_bundles.cpp
     src/game/titles/ff13_2/ui/addon_notification.cpp
     src/game/titles/ff13_2/ui/main_menu_frame.cpp
+    src/game/titles/ff13_2/ui/crystarium_list.cpp
+    src/game/titles/ff13_2/ui/menu_chrome.cpp
     src/game/titles/lightning_returns/title_adapter.cpp
     src/game/titles/lightning_returns/naming/chocobo_name.cpp
     src/game/titles/lightning_returns/naming/map_marker_name.cpp

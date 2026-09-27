@@ -87,6 +87,8 @@ struct ChildBaseline {
     std::byte* node{};
     float scaleX{1.0f};
     float positionX{};
+    float appliedPositionX{};
+    bool positionApplied{};
 };
 
 struct RootBaseline {
@@ -96,6 +98,8 @@ struct RootBaseline {
     float positionY{};
     std::array<ChildBaseline, kMaximumDirectChildren> children{};
     std::size_t childCount{};
+    std::array<ChildBaseline, 5> headerContent{};
+    bool headerContentValid{};
 };
 
 struct FrameBaseline {
@@ -257,7 +261,25 @@ bool CaptureRoot(std::byte* root, RootBaseline& output) {
         output.children[output.childCount++] = snapshot;
         if (!ReadAt(child, kNextSiblingOffset, child)) return false;
     }
-    return child == nullptr;
+    if (child) return false;
+    if (output.childCount < 2u) return true;
+    std::byte* content{};
+    if (!ReadAt(output.children[1].node, kFirstChildOffset, content)) {
+        return false;
+    }
+    for (ChildBaseline& entry : output.headerContent) {
+        std::byte* parent{};
+        if (!content || !ReadAt(content, kParentOffset, parent) ||
+            parent != output.children[1].node ||
+            !ReadAt(content, kPositionXOffset, entry.positionX) ||
+            !std::isfinite(entry.positionX)) {
+            return true;
+        }
+        entry.node = content;
+        if (!ReadAt(content, kNextSiblingOffset, content)) return false;
+    }
+    output.headerContentValid = content == nullptr;
+    return true;
 }
 
 bool CaptureFrameBaseline(void* product) {
@@ -315,13 +337,23 @@ bool FrameBaselineMatches(void* product) {
             child = TrustedField<std::byte*>(child, kNextSiblingOffset);
         }
         if (child) return false;
+        if (baseline.headerContentValid) {
+            std::byte* content = TrustedField<std::byte*>(
+                baseline.children[1].node, kFirstChildOffset);
+            for (const ChildBaseline& item : baseline.headerContent) {
+                if (content != item.node) return false;
+                content = TrustedField<std::byte*>(
+                    content, kNextSiblingOffset);
+            }
+            if (content) return false;
+        }
         root = TrustedField<std::byte*>(root, kNextSiblingOffset);
     }
     return true;
 }
 
-bool ApplyRoot(const RootBaseline& root, float safeScaleX,
-               float verticalOffset) {
+bool ApplyRoot(RootBaseline& root, float safeScaleX,
+               float verticalOffset, bool footer) {
     const float rootScale = root.scaleX / safeScaleX;
     const float rootPosition = root.positionX - root.scaleX *
         kAuthoredCenterX * ((1.0f / safeScaleX) - 1.0f);
@@ -339,14 +371,27 @@ bool ApplyRoot(const RootBaseline& root, float safeScaleX,
     if (rootChanged) MarkTrustedTransformDirty(root.node);
 
     for (std::size_t index = 0; index < root.childCount; ++index) {
-        const ChildBaseline& child = root.children[index];
+        ChildBaseline& child = root.children[index];
         const bool backing = index == 0u;
+        const float currentPosition = TrustedField<float>(
+            child.node, kPositionXOffset);
+        if (!std::isfinite(currentPosition)) return false;
+        if (footer && !backing && child.positionApplied &&
+            std::fabs(currentPosition - child.appliedPositionX) >
+                kTransformEpsilon) {
+            child.positionX = currentPosition;
+        }
         const float childScale = backing
             ? child.scaleX : child.scaleX * safeScaleX;
-        const float childPosition = backing
+        float childPosition = backing
             ? child.positionX
             : kAuthoredCenterX +
                 (child.positionX - kAuthoredCenterX) * safeScaleX;
+        if (footer && !backing && index + 1u == root.childCount &&
+            TrustedField<const void*>(child.node, 0u) ==
+                g_imageBase + 0x009E8F58u) {
+            childPosition += kAuthoredCenterX * (1.0f - safeScaleX);
+        }
         bool childChanged{};
         if (!WriteTrustedFloatIfChanged(child.node, kScaleXOffset,
                                         childScale, childChanged) ||
@@ -355,6 +400,19 @@ bool ApplyRoot(const RootBaseline& root, float safeScaleX,
             return false;
         }
         if (childChanged) MarkTrustedTransformDirty(child.node);
+        child.appliedPositionX = childPosition;
+        child.positionApplied = true;
+    }
+    if (!footer && root.headerContentValid && safeScaleX < 1.0f) {
+        const float overscan = kAuthoredCenterX *
+            ((1.0f / safeScaleX) - 1.0f);
+        for (const ChildBaseline& node : root.headerContent) {
+            bool changed{};
+            if (!WriteTrustedFloatIfChanged(node.node, kPositionXOffset,
+                                            node.positionX - overscan,
+                                            changed)) return false;
+            if (changed) MarkTrustedTransformDirty(node.node);
+        }
     }
     return true;
 }
@@ -505,13 +563,18 @@ void ApplyMainTopMenuPartyAnchor(void* mainMenu, float verticalOverscan) {
 }
 
 void ApplyWideFrame(void* product) {
+    const display::AspectRatio aspect = display::CurrentAspectRatio();
+    if (!aspect.valid || !aspect.correctionRequired) {
+        g_frameBaseline = {};
+        g_partyAnchorValidation = {};
+        return;
+    }
     if (!FrameBaselineMatches(product)) {
         g_frameBaseline = {};
         g_partyAnchorValidation = {};
         if (!CaptureFrameBaseline(product)) return;
     }
 
-    const display::AspectRatio aspect = display::CurrentAspectRatio();
     const float safeScaleX = aspect.valid &&
             aspect.safeScaleX >= kMinimumSafeScaleX &&
             aspect.safeScaleX < 1.0f
@@ -522,7 +585,7 @@ void ApplyWideFrame(void* product) {
         const float verticalOffset = index == 0u
             ? -verticalOverscan : verticalOverscan;
         if (!ApplyRoot(g_frameBaseline.roots[index], safeScaleX,
-                       verticalOffset)) {
+                       verticalOffset, index == 1u)) {
             g_frameBaseline = {};
             g_partyAnchorValidation = {};
             return;
