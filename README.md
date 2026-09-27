@@ -7,15 +7,14 @@
 
 
 
-Proxy for the PC versions of Final Fantasy XIII,
-Final Fantasy XIII-2, and Lightning Returns
+Proxy for the PC versions of Final Fantasy XIII, Final Fantasy XIII-2, and Lightning Returns
 
-It fixes port-specific bugs, improves high-FPS behavior, expands graphics and
-input options, and restores several features missing from Lightning Returns
+Fixes port-specific bugs, improves high-FPS behavior, adds more graphics/input options and restores a few things missing from Lightning Returns
 
 Check [here](docs/HOOKS_AND_PATCHES.md) for imported functions,
 vtable hooks, and executable patch locations.
 [And the API info is here](docs/PLUGIN_API.md).
+
 
 
 
@@ -40,6 +39,7 @@ vtable hooks, and executable patch locations.
 - Fixes UI clipping and alignment at resolutions above 720p
 - Faster UI rendering and anisotropic filtering without affecting pixel-art/UI textures
 - Fixes occasional bad frames during hard scene cuts
+- WIP support for arbitrary aspect ratios
 
 **XIII**
 
@@ -57,8 +57,6 @@ vtable hooks, and executable patch locations.
 - Mip LOD bias control
 - Automatic QTE prompt switching
 - Fixes Steam Cloud save crashes
-- Reconciles newer cross-PC and externally edited saves without silently
-  overwriting the other copy
 - Fixes D3D9 resource-pointer crashes
 
 **Lightning Returns**
@@ -79,17 +77,14 @@ vtable hooks, and executable patch locations.
 ## Installation
 
 > [!IMPORTANT]
-> **DO NOT** combine it with FF13Fix or similar setups, **IT'S NOT COMPATIBLE**.
+> **DO NOT** combine it with FF13Fix or similar setups, **IT'S NOT COMPATIBLE**
 >
->Only the latest Steam builds are supported. Microsoft Store releases **ARE NOT**
-supported yet.
+> Only the latest Steam builds are supported. Microsoft Store releases **ARE NOT** supported yet
 
 > [!CAUTION]
-> It is **HIGHLY RECOMMENDED** to use the [Nova Chrysalia mod loader](https://github.com/LR-Research-Team/Datalog/wiki/%5BGUIDE%5D-Installing-mods-for-Nova-Chrysalia) from the [official Discord server](https://discord.gg/mvqaETHjbh) to patch the game. It applies the 4 GB patch; without it, the game is likely to **CRASH** before even reaching gameplay. Other 4 GB patches either force you to use FF13Fix or trigger Steam DRM, so **DON'T USE THEM.**
+> It is **HIGHLY RECOMMENDED** to use the [Nova Chrysalia mod loader](https://github.com/LR-Research-Team/Datalog/wiki/%5BGUIDE%5D-Installing-mods-for-Nova-Chrysalia) from the [official Discord server](https://discord.gg/mvqaETHjbh) to patch the game. It applies the 4 GB patch and without it the game is likely to **CRASH** before even reaching gameplay. If you already have a 4 GB patch installed, leave it as is. If you don't, other 4 GB patches either force you to use FF13Fix or trigger Steam DRM, so **DON'T USE THEM**
 >
-> Nova Chrysalia is **NOT compatible with the Microsoft Store builds**.
->
-> The mod loader is not required to keep playing the games afterward. If you're not interested in modding, just launch the game through the mod loader once and that's it.
+> Nova Chrysalia is **NOT compatible with the Microsoft Store builds**. The mod loader isn't required afterward, if you're not interested in modding just launch the game through it once and that's it
 
 ### Windows
 
@@ -100,7 +95,8 @@ XIII:   white_data/prog/win/bin/ffxiiiimg.exe
 XIII-2: alba_data/prog/win/bin/ffxiii2img.exe
 LR:     LRFF13.exe
 ```
-If you already have FF13Fix installed (it also uses `d3d9.dll`), just overwrite it with NovaFix `d3d9.dll`
+
+If FF13Fix is already installed, overwrite its `d3d9.dll` with the NovaFix one
 
 ### Linux
 
@@ -110,33 +106,51 @@ Copy `d3d9.dll` to the same location and add this Steam launch option:
 WINEDLLOVERRIDES="d3d9=n,b" %command%
 ```
 
-
-Press `F10` in game to open the settings menu. You can also open it with a controller by holding both stick clicks or `Start + Back`, depending on your controller setup. This works on Windows too, not just on Steam Deck / Steam Machines.
-
+That's basically it for the install
 
 
-<br>
+
+
+
+
+## Settings
+
+`F10` opens the settings menu, controller shortcut works too - hold both stick clicks or use `Start + Back`
+
+
+
 
 
 
 ## DXVK and ReShade
 
-Direct3D 9 works by default. On Linux, leave the renderer set
-to `Automatic`, unless you want to use a local DXVK build ofc.
+> [!NOTE]
+> The ReShade section might be a little hard to follow, but most of the complexity comes from ReShade expecting everything else to work around it
 
-For DXVK on Windows, place the 32-bit `d3d9.dll` next to the proxy as `dxvk.dll`
-and select `Local DXVK` under Performance / Advanced.
+On Linux DXVK already handles D3D9 under Proton, so leave the renderer on Automatic unless you specifically want to use a local DXVK build. For local DXVK on Windows, put the 32-bit DXVK `d3d9.dll` next to NovaFix's `d3d9.dll`, rename it to `dxvk.dll` and select `Local DXVK` under Performance / Advanced
 
-For ReShade, create a `ReShade` directory next to NovaFix and place the
-32-bit D3D9 ReShade DLL there as `ReShade\d3d9.dll`, **any other method will crash the game.**
+Anyway there are two ways to use ReShade on Windows
 
-Keep `ReShade.ini` and `reshade-shaders` in that directory as well, then
-leave the renderer set to `Automatic`.
+**D3D9 ReShade**
+
+Create a `ReShade` folder next to NovaFix and put the 32-bit D3D9 ReShade DLL there as:
+
+```text
+ReShade\d3d9.dll
+```
+
+Move `ReShade.ini` and `reshade-shaders` into the newly created `ReShade` folder. With `Automatic`, ReShade loads before the system D3D9 renderer, with `Local DXVK` it loads before `dxvk.dll` and the proxy setting in `ReShade.ini` is handled automatically.
+
+**Vulkan ReShade**
+
+Select Vulkan for the game's actual exe in the ReShade installer, then keep NovaFix on `Local DXVK` with `dxvk.dll` next to it. ReShade installs its Vulkan layer separately, so `ReShade\d3d9.dll` isn't needed for this setup
+
+
+**Any other ReShade install method will crash the game**
 
 
 
 
-<br>
 
 
 
@@ -153,16 +167,17 @@ alphabetically, so prefixes such as `00_` and `10_` can be used to control load
 order.
 
 
-<br>
+
 
 
 ## Building
 
 Install Visual Studio 2022 with the **Desktop development with C++** workload and **C++ CMake tools for Windows**
+
 Open the repository folder -> Build it
 
 
-<br>
+
 
 
 
@@ -179,7 +194,7 @@ If the problem only shows up while recording, I can't really speak for other sof
 
 
 
-<br>
+
 
 
 ## Credits
@@ -189,7 +204,7 @@ Special thanks to [Dendonflo](https://github.com/Dendonflo), [Surihix](https://g
 And thanks to the original [FF13Fix](https://github.com/rebtd7/FF13Fix) author and everyone who contributed to it. Their work made the entry point into the deeper fixes for these games a lot easier.
 
 
-<br>
+
 
 
 
