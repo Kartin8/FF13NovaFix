@@ -185,6 +185,12 @@ void ConfigureHost(NovaFixPluginGame game, const char* gameName,
 }
 
 bool Discover(HMODULE module, std::wstring_view source) {
+    if (std::any_of(g_plugins.begin(), g_plugins.end(),
+                    [module](const Plugin& item) {
+                        return item.module == module;
+                    })) {
+        return false;
+    }
     const NovaFixPluginDescriptor* descriptorAddress = nullptr;
     DWORD exceptionCode = 0;
     const FARPROC queryAddress = NamedExport(

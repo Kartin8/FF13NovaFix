@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <unordered_map>
 
 namespace novafix::compat::plugin_descriptor {
 namespace {
@@ -63,6 +64,13 @@ void Disable(plugin_controls::Control* control, std::string_view issue) {
     control->issue.assign(issue);
 }
 
+void DisableExtensionChain(plugin_controls::Control* control,
+                           std::string_view issue) {
+    Disable(control, issue);
+    control->readState = nullptr;
+    control->presentationFlags = 0u;
+}
+
 void SetWarning(std::string* warning, std::string_view value) {
     if (warning && warning->empty()) warning->assign(value);
 }
@@ -106,7 +114,8 @@ void BuildValueFormat(plugin_controls::Control* control,
 void ReadControlExtensions(const NovaFixPluginExtension* first,
                            plugin_controls::Control* output,
                            ValueDisplay* valueDisplay,
-                           std::string* warning) {
+                           std::string* warning,
+                           std::vector<const NovaFixPluginExtension*>& chain) {
     if (!output || !valueDisplay) return;
     std::array<const NovaFixPluginExtension*, kMaxExtensions> visited{};
     const NovaFixPluginExtension* current = first;
@@ -117,14 +126,18 @@ void ReadControlExtensions(const NovaFixPluginExtension* first,
         if (std::find(visited.begin(), visited.begin() + count, current) !=
             visited.begin() + count) {
             SetWarning(warning, "cyclic extension chain was truncated");
+            DisableExtensionChain(output,
+                "Invalid extension chain: cycle detected. Attach each extension only once.");
             break;
         }
         visited[count++] = current;
+        chain.push_back(current);
 
         NovaFixPluginExtension header{};
         DWORD exceptionCode{};
         if (!TryCopyExtensionHeader(current, &header, &exceptionCode)) {
             SetWarning(warning, "unreadable extension chain was truncated");
+            DisableExtensionChain(output, "Invalid extension chain: unreadable extension.");
             break;
         }
 
@@ -237,6 +250,7 @@ void ReadControlExtensions(const NovaFixPluginExtension* first,
     }
     if (current && count == kMaxExtensions) {
         SetWarning(warning, "extension limit reached");
+        DisableExtensionChain(output, "Invalid extension chain: cycle or extension limit exceeded.");
     }
 }
 
@@ -298,7 +312,8 @@ bool CopyChoiceOptions(const NovaFixPluginControl& source,
 bool CopyControl(const void* address, std::uint32_t stride,
                  std::uint32_t index,
                  plugin_controls::Control* output,
-                 std::string* warning) {
+                 std::string* warning,
+                 std::vector<const NovaFixPluginExtension*>& chain) {
     if (!address || !output) return false;
     NovaFixPluginControl source{};
     DWORD exceptionCode = 0;
@@ -329,7 +344,8 @@ bool CopyControl(const void* address, std::uint32_t stride,
     output->userData = source.userData;
     ValueDisplay valueDisplay;
     ReadControlExtensions(
-        source.extensions, output, &valueDisplay, warning);
+        source.extensions, output, &valueDisplay, warning, chain);
+    if (!output->available) return true;
 
     if (!idReadable || !labelReadable || !descriptionReadable) {
         if (warning) {
@@ -465,19 +481,31 @@ void ReadControls(const NovaFixPluginDescriptor& descriptor,
     }
 
     plugin.controls.reserve(controlCount);
+    std::unordered_map<const NovaFixPluginExtension*, std::size_t> extensionOwners;
     for (std::uint32_t index = 0u; index < controlCount; ++index) {
         const void* controlAddress = ElementAddress(
             descriptor.controls, index, controlStride);
         if (!controlAddress) break;
         plugin_controls::Control control{};
         std::string warning;
+        std::vector<const NovaFixPluginExtension*> chain;
         if (!CopyControl(controlAddress, controlStride, index,
-                         &control, &warning)) {
+                         &control, &warning, chain)) {
             LogWarning("Add-on control skipped: source=%ls id=%s index=%u reason=%s",
                 plugin.source.c_str(), plugin.id.c_str(), index,
                 warning.empty() ? "unreadable descriptor"
                                 : warning.c_str());
             continue;
+        }
+        for (const auto* extension : chain) {
+            const auto [owner, inserted] = extensionOwners.emplace(
+                extension, plugin.controls.size());
+            if (!inserted && owner->second != plugin.controls.size()) {
+                constexpr std::string_view issue =
+                    "Extension instance reused across controls. Create a separate instance for each control.";
+                DisableExtensionChain(&control, issue);
+                DisableExtensionChain(&plugin.controls[owner->second], issue);
+            }
         }
         if (!warning.empty()) {
             LogWarning("Add-on control fallback: source=%ls id=%s control=%s reason=%s",

@@ -220,7 +220,9 @@ void DrawValueControl(const compat::plugin_controls::Plugin& plugin,
     ImGui::PushID(control.id.c_str());
 
     if (!control.available) {
-        ImGui::TextDisabled("%s", control.issue.c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("%s", control.issue.c_str());
+        ImGui::PopStyleColor();
         ImGui::PopID();
         return;
     }
@@ -359,8 +361,9 @@ void DrawStandaloneControl(const compat::plugin_controls::Plugin& plugin,
                            std::uint32_t state) {
     ImGui::PushID(control.id.c_str());
     if (!control.available) {
-        ImGui::TextDisabled("%s: %s", control.label.c_str(),
-                            control.issue.c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("%s: %s", control.label.c_str(), control.issue.c_str());
+        ImGui::PopStyleColor();
     } else if (control.type == NOVAFIX_PLUGIN_CONTROL_BUTTON) {
         if (control.callbackFailed) {
             ImGui::TextDisabled("%s: add-on callback failed",

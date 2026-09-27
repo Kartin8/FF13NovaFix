@@ -683,7 +683,15 @@ NovaFixPlugin_MakeValueDisplayExtension(
 
 static inline void NovaFixPlugin_AddControlExtension(
     NovaFixPluginControl* control, NovaFixPluginExtension* extension) {
+    const NovaFixPluginExtension* current;
+    uint32_t count;
     if (!control || !extension) return;
+    current = control->extensions;
+    for (count = 0u; current && count < NOVAFIX_PLUGIN_MAX_CONTROL_EXTENSIONS;
+         ++count, current = current->next) {
+        if (current == extension) return;
+    }
+    if (current || count == NOVAFIX_PLUGIN_MAX_CONTROL_EXTENSIONS) return;
     extension->next = control->extensions;
     control->extensions = extension;
 }
