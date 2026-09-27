@@ -1,9 +1,9 @@
-#include "d3d9/device_state_hooks.h"
+#include "d3d9/device/device_state_hooks.h"
 
 #include "diagnostics/log.h"
-#include "d3d9/device_hook_policy.h"
-#include "d3d9/minimap_shader_variant.h"
-#include "d3d9/redundant_state_filter.h"
+#include "d3d9/device/device_hook_policy.h"
+#include "d3d9/shaders/minimap_shader_variant.h"
+#include "d3d9/device/redundant_state_filter.h"
 #include "game/titles/ff13_2/camera/aspect_ratio.h"
 #include "patch/vtable_hook.h"
 

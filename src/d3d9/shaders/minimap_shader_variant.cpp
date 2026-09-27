@@ -1,7 +1,7 @@
-#include "d3d9/minimap_shader_variant.h"
+#include "d3d9/shaders/minimap_shader_variant.h"
 
-#include "d3d9/shader_bytecode/ff13_2_minimap_clip_coordinates.h"
-#include "d3d9/shader_bytecode_identity.h"
+#include "d3d9/shaders/bytecode/ff13_2_minimap_clip_coordinates.h"
+#include "d3d9/shaders/shader_bytecode_identity.h"
 
 #include <windows.h>
 

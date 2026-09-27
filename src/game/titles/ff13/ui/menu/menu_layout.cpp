@@ -760,7 +760,7 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
     // Loaded gr_shop separates background art from logos/characters. Cover
     // these layers uniformly; never scale the common theme owner. IDs depend
     // on the template: landscape 27 is distinct from the logo 27 elsewhere.
-    const bool shopThemeBackground = node && g_menuColumnUpdate.shopTheme &&
+    const bool shopThemeBackground = (node && g_menuColumnUpdate.shopTheme &&
         Field<void*>(node, kNodeParentOffset) == g_menuColumnUpdate.shopTheme &&
         ((reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
               g_imageBase + kPartyStatusGroupVtableRva &&
@@ -794,7 +794,7 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
            (g_menuColumnUpdate.shopIndex == 8 &&
             Field<int>(node, kResourceIdOffset) == 194) ||
            (g_menuColumnUpdate.shopIndex == 4 &&
-            Field<int>(node, kResourceIdOffset) == 1)))) ||
+            Field<int>(node, kResourceIdOffset) == 1))))) ||
         (node && g_menuColumnUpdate.shopTheme && [&] {
             if (g_menuColumnUpdate.shopIndex != 0 &&
                 g_menuColumnUpdate.shopIndex != 3) return false;

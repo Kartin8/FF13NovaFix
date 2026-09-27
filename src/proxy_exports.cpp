@@ -35,7 +35,7 @@ struct D3D9ON12_ARGS;
 #include "common/module_path.h"
 #include "compat/addons/addon_loader.h"
 #include "d3d9/backend.h"
-#include "d3d9/factory_hooks.h"
+#include "d3d9/device/factory_hooks.h"
 #include "overlay/overlay.h"
 #include "patch/memory_access.h"
 #include "runtime/bootstrap.h"

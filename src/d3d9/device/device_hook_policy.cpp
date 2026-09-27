@@ -1,4 +1,4 @@
-#include "d3d9/device_hook_policy.h"
+#include "d3d9/device/device_hook_policy.h"
 
 namespace novafix::d3d9 {
 

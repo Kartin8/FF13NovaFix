@@ -1,12 +1,12 @@
-#include "d3d9/device_shader_hooks.h"
+#include "d3d9/device/device_shader_hooks.h"
 
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
-#include "d3d9/alpha_shadow_variants.h"
-#include "d3d9/device_hook_policy.h"
-#include "d3d9/mip_lod_bias_controller.h"
-#include "d3d9/redundant_state_filter.h"
-#include "d3d9/shader_corrections.h"
+#include "d3d9/shaders/alpha_shadow_variants.h"
+#include "d3d9/device/device_hook_policy.h"
+#include "d3d9/device/mip_lod_bias_controller.h"
+#include "d3d9/device/redundant_state_filter.h"
+#include "d3d9/shaders/shader_corrections.h"
 #include "patch/vtable_hook.h"
 
 #include <windows.h>

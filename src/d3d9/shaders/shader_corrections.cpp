@@ -1,10 +1,10 @@
-#include "d3d9/shader_corrections.h"
+#include "d3d9/shaders/shader_corrections.h"
 
 #include "diagnostics/log.h"
 #include "compat/compatibility.h"
-#include "d3d9/shader_bytecode/alpha_shadow.h"
-#include "d3d9/shader_bytecode/opaque_shadow_fixed_depth.h"
-#include "d3d9/shader_bytecode_identity.h"
+#include "d3d9/shaders/bytecode/alpha_shadow.h"
+#include "d3d9/shaders/bytecode/opaque_shadow_fixed_depth.h"
+#include "d3d9/shaders/shader_bytecode_identity.h"
 #include "game/core/game_profile.h"
 #include "settings/graphics_settings.h"
 

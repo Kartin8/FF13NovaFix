@@ -1,9 +1,9 @@
-#include "d3d9/factory_hooks.h"
+#include "d3d9/device/factory_hooks.h"
 
 #include "diagnostics/log.h"
 #include "patch/vtable_hook.h"
-#include "d3d9/device_hooks.h"
-#include "d3d9/presentation_setup.h"
+#include "d3d9/device/device_hooks.h"
+#include "d3d9/presentation/presentation_setup.h"
 #include "game/core/features.h"
 #include "game/core/game_profile.h"
 #include "game/shared/ui/startup_module_notification.h"

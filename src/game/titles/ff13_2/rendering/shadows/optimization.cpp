@@ -1,8 +1,8 @@
 #include "game/titles/ff13_2/rendering/shadows/optimization.h"
 
 #include "diagnostics/log.h"
-#include "d3d9/alpha_shadow_variants.h"
-#include "d3d9/shader_corrections.h"
+#include "d3d9/shaders/alpha_shadow_variants.h"
+#include "d3d9/shaders/shader_corrections.h"
 #include "game/core/game_profile.h"
 #include "game/titles/ff13_2/rendering/shadows/direct_atlas.h"
 #include "game/titles/ff13_2/rendering/shadows/fixed_depth.h"

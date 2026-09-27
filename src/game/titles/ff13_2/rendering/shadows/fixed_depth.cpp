@@ -2,7 +2,7 @@
 
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
-#include "d3d9/shader_corrections.h"
+#include "d3d9/shaders/shader_corrections.h"
 #include "game/core/game_profile.h"
 #include "game/core/image_view.h"
 #include "game/titles/ff13_2/rendering/shadows/direct_atlas.h"

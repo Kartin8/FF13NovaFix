@@ -27,7 +27,7 @@ configure_file(src/proxy_exports.def.in
                "${CMAKE_CURRENT_BINARY_DIR}/generated/proxy_exports.def" @ONLY)
 
 set(NOVAFIX_SOURCES
-    src/d3d9/alpha_shadow_variants.cpp
+    src/d3d9/shaders/alpha_shadow_variants.cpp
     src/diagnostics/hook_profiler.cpp
     src/diagnostics/gpu_profiler.cpp
     src/diagnostics/log.cpp
@@ -49,19 +49,22 @@ set(NOVAFIX_SOURCES
     src/compat/platform.cpp
     src/d3d9/backend.cpp
     src/d3d9/reshade_chain.cpp
-    src/d3d9/device_hook_policy.cpp
-    src/d3d9/device_hooks.cpp
-    src/d3d9/device_shader_hooks.cpp
-    src/d3d9/device_state_hooks.cpp
-    src/d3d9/factory_hooks.cpp
-    src/d3d9/mip_lod_bias_controller.cpp
-    src/d3d9/minimap_shader_variant.cpp
-    src/d3d9/presentation_setup.cpp
-    src/d3d9/redundant_state_filter.cpp
-    src/d3d9/shader_bytecode_identity.cpp
-    src/d3d9/shader_corrections.cpp
-    src/d3d9/presentation_router.cpp
-    src/d3d9/swap_chain_proxy.cpp
+    src/d3d9/device/device_hook_policy.cpp
+    src/d3d9/device/device_hook_installer.cpp
+    src/d3d9/device/device_hooks.cpp
+    src/d3d9/device/device_registry.cpp
+    src/d3d9/device/device_shader_hooks.cpp
+    src/d3d9/device/device_state_hooks.cpp
+    src/d3d9/device/device_ui_hooks.cpp
+    src/d3d9/device/factory_hooks.cpp
+    src/d3d9/device/mip_lod_bias_controller.cpp
+    src/d3d9/shaders/minimap_shader_variant.cpp
+    src/d3d9/presentation/presentation_setup.cpp
+    src/d3d9/device/redundant_state_filter.cpp
+    src/d3d9/shaders/shader_bytecode_identity.cpp
+    src/d3d9/shaders/shader_corrections.cpp
+    src/d3d9/presentation/presentation_router.cpp
+    src/d3d9/presentation/swap_chain_proxy.cpp
     src/diagnostics/crash_dumps.cpp
     src/display/display_profile.cpp
     src/display/aspect_ratio.cpp

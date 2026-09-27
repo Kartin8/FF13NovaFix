@@ -1,9 +1,9 @@
-#include "d3d9/swap_chain_proxy.h"
+#include "d3d9/presentation/swap_chain_proxy.h"
 
 #include "diagnostics/hook_profiler.h"
 #include "diagnostics/log.h"
-#include "d3d9/mip_lod_bias_controller.h"
-#include "d3d9/presentation_router.h"
+#include "d3d9/device/mip_lod_bias_controller.h"
+#include "d3d9/presentation/presentation_router.h"
 #include "game/shared/timing/cutscene_terminal_frame.h"
 
 #include <d3d9.h>

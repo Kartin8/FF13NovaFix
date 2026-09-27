@@ -2,7 +2,7 @@
 
 #include "game/titles/ff13_2/camera/aspect_ratio.h"
 
-#include "d3d9/minimap_shader_variant.h"
+#include "d3d9/shaders/minimap_shader_variant.h"
 #include "display/aspect_runtime.h"
 #include "display/scissor_transform.h"
 #include "game/core/image_view.h"

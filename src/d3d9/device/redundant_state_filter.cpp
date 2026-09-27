@@ -1,4 +1,4 @@
-#include "d3d9/redundant_state_filter.h"
+#include "d3d9/device/redundant_state_filter.h"
 
 #include <windows.h>
 

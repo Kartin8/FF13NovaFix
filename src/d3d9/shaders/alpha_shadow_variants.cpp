@@ -1,6 +1,6 @@
-#include "d3d9/alpha_shadow_variants.h"
+#include "d3d9/shaders/alpha_shadow_variants.h"
 
-#include "d3d9/shader_bytecode/alpha_shadow_fixed_depth.h"
+#include "d3d9/shaders/bytecode/alpha_shadow_fixed_depth.h"
 
 #include <windows.h>
 

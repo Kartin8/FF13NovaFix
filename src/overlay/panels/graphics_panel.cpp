@@ -1,6 +1,6 @@
 #include "overlay/panels/graphics_panel.h"
 
-#include "d3d9/device_hooks.h"
+#include "d3d9/device/device_hooks.h"
 #include "display/aspect_runtime.h"
 #include "display/monitor_layout.h"
 #include "game/core/game_profile.h"

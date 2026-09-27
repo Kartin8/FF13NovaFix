@@ -1,6 +1,6 @@
 #pragma once
 
-#include "d3d9/shader_corrections.h"
+#include "d3d9/shaders/shader_corrections.h"
 
 #include <d3d9.h>
 

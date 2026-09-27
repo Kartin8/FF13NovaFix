@@ -1,9 +1,9 @@
-#include "d3d9/presentation_router.h"
+#include "d3d9/presentation/presentation_router.h"
 
 #include "diagnostics/log.h"
 #include "compat/compatibility.h"
-#include "d3d9/device_recovery_policy.h"
-#include "d3d9/redundant_state_filter.h"
+#include "d3d9/device/device_recovery_policy.h"
+#include "d3d9/device/redundant_state_filter.h"
 #include "display/display_profile.h"
 #include "game/core/features.h"
 #include "game/core/game_profile.h"

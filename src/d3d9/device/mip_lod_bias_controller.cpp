@@ -1,4 +1,4 @@
-#include "d3d9/mip_lod_bias_controller.h"
+#include "d3d9/device/mip_lod_bias_controller.h"
 
 #include "display/texture_policy.h"
 
