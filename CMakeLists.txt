@@ -109,6 +109,7 @@ set(NOVAFIX_SOURCES
     src/game/titles/ff13/rendering/movie_aspect.cpp
     src/game/titles/ff13/ui/backdrop/backdrop_capture.cpp
     src/game/titles/ff13/ui/battle_header_layout.cpp
+    src/game/titles/ff13/ui/battle_hud_layout.cpp
     src/game/titles/ff13/ui/gestalt_layout.cpp
     src/game/titles/ff13/ui/gui_aspect.cpp
     src/game/titles/ff13/ui/map_alert_vfx.cpp

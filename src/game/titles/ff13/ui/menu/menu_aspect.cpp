@@ -7,6 +7,7 @@
 #include "game/titles/ff13/ui/menu/menu_contract.h"
 #include "game/titles/ff13/ui/menu/menu_list_clip.h"
 #include "game/titles/ff13/ui/menu/menu_layout.h"
+#include "game/titles/ff13/ui/battle_hud_layout.h"
 #include "patch/detour32.h"
 #include "patch/memory_access.h"
 
@@ -20,20 +21,14 @@
 namespace novafix::game::ff13_ui::menu_aspect {
 namespace {
 
-using menu_contract::kSettingsListVtableRva;
 using menu_contract::kNodeParentOffset;
 
 constexpr std::uint32_t kMainMenuProductVtableRva =
     0x11549A8u - 0x400000u;
-constexpr std::uint32_t kSettingsProductVtableRva =
-    0x114D4D0u - 0x400000u;
-constexpr std::uint32_t kSettingsCursorRva =
-    0x973040u - 0x400000u;
 constexpr std::uint32_t kPartyStatusStripVtableRva =
     0x119F010u - 0x400000u;
 constexpr std::uint32_t kPartyStatusStripDrawRva =
     0xA637D0u - 0x400000u;
-constexpr std::size_t kSettingsListOffset = 0x7Cu;
 constexpr std::uint32_t kListCursorRva = 0xA53AC0u - 0x400000u;
 constexpr std::uint32_t kEquipmentCursorRva = 0xA49DE0u - 0x400000u;
 constexpr std::uint32_t kAccessoryCursorRva = 0xA4EA40u - 0x400000u;
@@ -46,10 +41,6 @@ constexpr std::array<std::byte, 12> kPartyStatusStripDrawPrefix{
     std::byte{0x55}, std::byte{0x8B}, std::byte{0xEC}, std::byte{0x83},
     std::byte{0xE4}, std::byte{0xF0}, std::byte{0x81}, std::byte{0xEC},
     std::byte{0xF0}, std::byte{0x04}, std::byte{0x00}, std::byte{0x00}};
-constexpr std::array<std::byte, 9> kSettingsCursorPrefix{
-    std::byte{0x55}, std::byte{0x8B}, std::byte{0xEC}, std::byte{0x81},
-    std::byte{0xEC}, std::byte{0xB4}, std::byte{0x02}, std::byte{0x00},
-    std::byte{0x00}};
 constexpr std::array<std::byte, 9> kListCursorPrefix{
     std::byte{0x55}, std::byte{0x8B}, std::byte{0xEC}, std::byte{0x83},
     std::byte{0xEC}, std::byte{0x2C}, std::byte{0x89}, std::byte{0x4D},
@@ -80,14 +71,12 @@ patch::Detour32 g_accessoryCursorDetour;
 patch::Detour32 g_enemyCategoryCursorDetour;
 patch::Detour32 g_articleCursorDetour;
 patch::Detour32 g_partyStatusStripDrawDetour;
-patch::Detour32 g_settingsCursorDetour;
 CursorPositionFn g_listCursor{};
 CursorPositionFn g_equipmentCursor{};
 CursorPositionFn g_accessoryCursor{};
 CursorPositionFn g_enemyCategoryCursor{};
 CursorPositionFn g_articleCursor{};
 PartyStatusStripDrawFn g_partyStatusStripDraw{};
-CursorPositionFn g_settingsCursor{};
 std::uintptr_t g_imageBase{};
 template <typename T>
 T& Field(void* object, std::size_t offset) {
@@ -96,23 +85,6 @@ T& Field(void* object, std::size_t offset) {
 void* __fastcall ListCursorHook(void* widget, void*, float* position) {
     void* result = g_listCursor(widget, position);
     menu_layout::CorrectLocalCursor(widget, position);
-    return result;
-}
-
-void* __fastcall SettingsCursorHook(void* widget, void*, float* position) {
-    void* result = g_settingsCursor(widget, position);
-    if (!widget || !position || position[3] == 0.0f ||
-        g_imageBase == 0u ||
-        reinterpret_cast<std::uintptr_t>(Field<void*>(widget, 0u)) !=
-            g_imageBase + kSettingsListVtableRva) return result;
-    void* owner = Field<void*>(widget, kNodeOwnerOffset);
-    if (!owner || !patch::memory::IsReadable(
-            owner, kSettingsListOffset + sizeof(void*)) ||
-        reinterpret_cast<std::uintptr_t>(Field<void*>(owner, 0u)) !=
-            g_imageBase + kSettingsProductVtableRva ||
-        Field<void*>(owner, kSettingsListOffset) != widget) return result;
-    position[0] -= ff13_ui::HorizontalColumnOffset(
-        display::CurrentAspectRatio(), ff13_ui::ColumnSide::Right);
     return result;
 }
 
@@ -208,20 +180,17 @@ void Prepare(const ImageView& image) {
     g_imageBase = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
     menu_chrome::Prepare(image);
     menu_layout::Prepare(image);
+    battle_hud_layout::Prepare(image);
     menu_list_clip::Prepare(image);
 }
 
 bool InstallDetours(const ImageView& image) {
     return menu_chrome::InstallDetour(image) &&
+        battle_hud_layout::InstallDetour(image) &&
         g_listCursorDetour.Install(
             "ff13-list-cursor-anchor", Target(image, kListCursorRva),
             reinterpret_cast<void*>(&ListCursorHook), kListCursorPrefix,
             reinterpret_cast<void**>(&g_listCursor)) &&
-        g_settingsCursorDetour.Install(
-            "ff13-settings-cursor-anchor", Target(image, kSettingsCursorRva),
-            reinterpret_cast<void*>(&SettingsCursorHook),
-            kSettingsCursorPrefix,
-            reinterpret_cast<void**>(&g_settingsCursor)) &&
         g_equipmentCursorDetour.Install(
             "ff13-equipment-cursor-anchor", Target(image, kEquipmentCursorRva),
             reinterpret_cast<void*>(&EquipmentCursorHook), kEquipmentCursorPrefix,
@@ -250,8 +219,8 @@ bool InstallDetours(const ImageView& image) {
 }
 
 void Revert() {
+    battle_hud_layout::Revert();
     menu_list_clip::Revert();
-    g_settingsCursorDetour.RevertAndClear(g_settingsCursor);
     g_partyStatusStripDrawDetour.RevertAndClear(g_partyStatusStripDraw);
     g_articleCursorDetour.RevertAndClear(g_articleCursor);
     g_enemyCategoryCursorDetour.RevertAndClear(g_enemyCategoryCursor);

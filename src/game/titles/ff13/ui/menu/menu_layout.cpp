@@ -3,6 +3,7 @@
 #include "display/aspect_runtime.h"
 #include "game/core/image_view.h"
 #include "game/titles/ff13/ui/battle_header_layout.h"
+#include "game/titles/ff13/ui/battle_hud_layout.h"
 #include "game/titles/ff13/ui/gestalt_layout.h"
 #include "game/titles/ff13/ui/menu/menu_chrome.h"
 #include "game/titles/ff13/ui/menu/menu_column_layout.h"
@@ -27,7 +28,6 @@ namespace {
 
 using menu_contract::kMissionListProductVtableRva;
 using menu_contract::kMissionListVtableRva;
-using menu_contract::kPartyStatusValueVtableRva;
 using menu_contract::kBackdropVtableRva;
 using menu_contract::kNodeParentOffset;
 using menu_contract::kNodeFirstChildOffset;
@@ -56,8 +56,29 @@ constexpr std::uint32_t kSettingsProductVtableRva =
     0x114D4D0u - 0x400000u;
 constexpr std::uint32_t kSettingsChoiceProductVtableRva =
     0x114D000u - 0x400000u;
-constexpr std::uint32_t kSettingsLabelVtableRva =
-    0x119C8D0u - 0x400000u;
+constexpr std::uint32_t kParadigmDeckProductVtableRva =
+    0x1153138u - 0x400000u;
+constexpr std::uint32_t kParadigmRolesProductVtableRva =
+    0x1153568u - 0x400000u;
+constexpr std::uint32_t kParadigmSelectionEffectVtableRva =
+    0x119F9E0u - 0x400000u;
+constexpr std::uint32_t kSharedOverlayVtableRva =
+    0x119F010u - 0x400000u;
+constexpr std::uint32_t kSaveLoadProductVtableRva =
+    0x11984C8u - 0x400000u;
+constexpr std::uint32_t kHelpProductVtableRva =
+    0x114A190u - 0x400000u;
+constexpr std::uint32_t kLoadingScreenProductVtableRva =
+    0x1198AB0u - 0x400000u;
+constexpr std::uint32_t kNowLoadingProductVtableRva =
+    0x11570F8u - 0x400000u;
+constexpr std::uint32_t kPauseGuideProductVtableRva =
+    0x114A438u - 0x400000u;
+constexpr std::uint32_t kShopSelectionProductVtableRva = 0x1153D90u - 0x400000u;
+constexpr std::uint32_t kShopItemsProductVtableRva = 0x1153920u - 0x400000u;
+constexpr std::uint32_t kShopChromeProductVtableRva = 0x1151E00u - 0x400000u;
+constexpr int kSharedOverlayResourceId = 1031;
+constexpr float kParadigmSelectionEffectWidth = 420.0f;
 constexpr std::uint32_t kSettingsHeaderTextVtableRva =
     0x119C2E8u - 0x400000u;
 constexpr std::uint32_t kPartyStatusGroupVtableRva =
@@ -65,6 +86,7 @@ constexpr std::uint32_t kPartyStatusGroupVtableRva =
 constexpr std::uint32_t kPartyStatusBackingVtableRva =
     0x119FBB0u - 0x400000u;
 constexpr std::uint32_t kTitleLogoVtableRva = 0x11997B0u - 0x400000u;
+constexpr std::uint32_t kTitleMenuVtableRva = 0x1199A20u - 0x400000u;
 constexpr std::uint32_t kTitleVisualRootVtableRva = 0x119C470u - 0x400000u;
 constexpr std::uint32_t kProductUpdateDispatchRva = 0x8EB0BBu - 0x400000u;
 constexpr std::uint32_t kGuiManagerPointerRva = 0x2826A4Cu - 0x400000u;
@@ -94,11 +116,14 @@ struct MenuColumnUpdateContext {
     const ff13_ui::MenuColumnProfile* profile{};
     display::AspectRatio aspect{};
     void* titleLogoModel{};
+    void* titleCopyrightGroup{};
+    float titleCopyrightBottomOffset{};
     void* partyStatusRoot{};
     float partyStatusBottomOffset{};
     std::array<void*, 3> partyStatusBackings{};
     float partyWidthScale{1.0f};
     void* fieldMapBacking{};
+    std::array<void*, 2> fieldMapFilterBackings{};
     std::array<void*, 2> fieldMapLeftGroups{};
     float fieldMapWidthScale{1.0f};
     float fieldMapHeightScale{1.0f};
@@ -112,6 +137,23 @@ struct MenuColumnUpdateContext {
     float articleGutter{};
     float settingsGutter{};
     float settingsChoiceGutter{};
+    float paradigmDeckGutter{};
+    float paradigmRolesGutter{};
+    void* saveLoadHeader{};
+    std::array<void*, 2> saveLoadFooter{};
+    float saveLoadVerticalGutter{};
+    bool loadingScreen{};
+    void* loadingIndicatorRoot{};
+    void* pauseGuideRoot{};
+    float pauseGuideBottomOffset{};
+    bool shopScreen{};
+    void* shopDescription{};
+    void* shopHelpRoot{};
+    bool shopChrome{};
+    void* shopTheme{};
+    void* shopVisuals{};
+    bool shopLandscapeTheme{};
+    int shopIndex{-1};
 };
 thread_local MenuColumnUpdateContext g_menuColumnUpdate{};
 struct MissionListCache {
@@ -169,6 +211,38 @@ PanelEdge SettingsPanelRole(int resourceId) {
 
 bool SettingsChoiceBacking(int resourceId) {
     return resourceId == 1420 || resourceId == 1421 || resourceId == 1422;
+}
+
+PanelEdge ParadigmDeckPanelRole(int resourceId) {
+    switch (resourceId) {
+    case 929: case 930: case 932:
+    case 883: case 884: case 897:
+        return PanelEdge::Both;
+    case 888: case 889: case 892:
+        return PanelEdge::LeftFill;
+    case 885: case 887: case 890: case 891:
+        return PanelEdge::LeftCap;
+    case 896:
+        return PanelEdge::RightFill;
+    default:
+        return PanelEdge::None;
+    }
+}
+
+PanelEdge ParadigmRolesPanelRole(int resourceId) {
+    switch (resourceId) {
+    case 929: case 930: case 932:
+    case 1243: case 1244: case 1258:
+        return PanelEdge::Both;
+    case 1248: case 1250: case 1253:
+        return PanelEdge::LeftFill;
+    case 1247: case 1249: case 1254:
+        return PanelEdge::LeftCap;
+    case 1252:
+        return PanelEdge::RightFill;
+    default:
+        return PanelEdge::None;
+    }
 }
 
 void ExtendPanelNode(void* node, PanelEdge edge, float gutter) {
@@ -314,6 +388,23 @@ void CaptureFieldMapLayout(void* product, MenuColumnUpdateContext& context) {
     context.fieldMapBacking = background;
     context.fieldMapWidthScale = 1.0f / context.aspect.safeScaleX;
     context.fieldMapHeightScale = 1.0f / context.aspect.safeScaleY;
+    if (context.aspect.safeScaleY < 1.0f) {
+        // The map's tint/fog is split into two texture strips under the
+        // sidebar group. Stretch those strips, never the legend or map mesh.
+        void* strip = Field<void*>(sidebar, kNodeFirstChildOffset);
+        for (unsigned count = 0; strip && count < 8u; ++count) {
+            if (!patch::memory::IsWritable(
+                    strip, kNodeDirtyFlagsOffset + sizeof(std::uint32_t)) ||
+                Field<void*>(strip, kNodeParentOffset) != sidebar) break;
+            const int id = Field<int>(strip, kResourceIdOffset);
+            if ((id == 1056 || id == 1399) &&
+                reinterpret_cast<std::uintptr_t>(Field<void*>(strip, 0u)) ==
+                    g_imageBase + kPartyStatusBackingVtableRva) {
+                context.fieldMapFilterBackings[id == 1056 ? 0u : 1u] = strip;
+            }
+            strip = Field<void*>(strip, kNodeNextSiblingOffset);
+        }
+    }
     if (context.aspect.safeScaleX >= 1.0f) return;
 
     void* legend = Field<void*>(product, kFieldMapLegendOffset);
@@ -418,9 +509,112 @@ int __fastcall MenuProductUpdateHook(void* product, void*, float delta) {
     const auto aspect = display::CurrentAspectRatio();
     const battle_header_layout::ScopedProduct battleLayout(
         product, aspect, g_imageBase);
+    void* const guiManager = g_guiManagerPointer ? *g_guiManagerPointer : nullptr;
+    const battle_hud_layout::ScopedProduct battleHudLayout(
+        product, aspect, g_imageBase,
+        guiManager ? Field<void*>(guiManager, 563u * sizeof(void*)) : nullptr);
     const gestalt_layout::ScopedProduct gestaltLayout(
         product, aspect, g_imageBase);
     g_menuColumnUpdate = {product, ColumnProfile(product), aspect};
+    if (product && guiManager && aspect.valid && aspect.correctionRequired &&
+        g_imageBase != 0u) {
+        void* active = Field<void*>(guiManager, 724u);
+        const auto activeVtable = active
+            ? reinterpret_cast<std::uintptr_t>(Field<void*>(active, 0u)) : 0u;
+        g_menuColumnUpdate.shopScreen =
+            activeVtable == g_imageBase + kShopSelectionProductVtableRva ||
+            activeVtable == g_imageBase + kShopItemsProductVtableRva;
+        if (g_menuColumnUpdate.shopScreen) {
+            const auto vtable = reinterpret_cast<std::uintptr_t>(Field<void*>(product, 0u));
+            g_menuColumnUpdate.shopChrome = vtable == g_imageBase + kShopChromeProductVtableRva;
+            if (vtable == g_imageBase + kShopSelectionProductVtableRva) {
+                g_menuColumnUpdate.shopDescription = Field<void*>(product, 0x90u);
+                g_menuColumnUpdate.shopVisuals = Field<void*>(product, 0x94u);
+                g_menuColumnUpdate.shopTheme = Field<void*>(product, 0x98u);
+                void* const shopList = Field<void*>(product, 0x84u);
+                if (shopList && patch::memory::IsReadable(shopList, 0x228u)) {
+                    const int selected = Field<int>(shopList, 0x224u);
+                    if (selected >= 0 && selected < 13)
+                        g_menuColumnUpdate.shopIndex = selected;
+                }
+                // Creature Comforts uses 27 for the landscape, not its logo.
+                // Identify the template by all three distinct sibling roots.
+                unsigned themeSignature = 0u;
+                void* theme = g_menuColumnUpdate.shopTheme;
+                void* child = theme ? Field<void*>(theme, kNodeFirstChildOffset) : nullptr;
+                for (unsigned count = 0; child && count < 32u; ++count) {
+                    if (Field<void*>(child, kNodeParentOffset) == theme &&
+                        reinterpret_cast<std::uintptr_t>(Field<void*>(child, 0u)) ==
+                            g_imageBase + kPartyStatusGroupVtableRva) {
+                        const int id = Field<int>(child, kResourceIdOffset);
+                        if (id == 11) themeSignature |= 1u;
+                        if (id == 13) themeSignature |= 2u;
+                        if (id == 37) themeSignature |= 4u;
+                    }
+                    child = Field<void*>(child, kNodeNextSiblingOffset);
+                }
+                g_menuColumnUpdate.shopLandscapeTheme = themeSignature == 7u;
+            }
+            if (vtable == g_imageBase + kHelpProductVtableRva)
+                g_menuColumnUpdate.shopHelpRoot = Field<void*>(product, 0x34u);
+        }
+    }
+    if (product && aspect.valid && aspect.correctionRequired &&
+        g_imageBase != 0u) {
+        const auto vtable = reinterpret_cast<std::uintptr_t>(Field<void*>(product, 0u));
+        g_menuColumnUpdate.loadingScreen =
+            vtable == g_imageBase + kLoadingScreenProductVtableRva;
+        if (vtable == g_imageBase + kNowLoadingProductVtableRva &&
+            Field<int>(product, 0x70u) == 0) {
+            void* manager = g_guiManagerPointer ? *g_guiManagerPointer : nullptr;
+            void* active = manager ? Field<void*>(manager, 724u) : nullptr;
+            if (active && reinterpret_cast<std::uintptr_t>(Field<void*>(active, 0u)) ==
+                    g_imageBase + kLoadingScreenProductVtableRva) {
+                g_menuColumnUpdate.loadingIndicatorRoot = Field<void*>(product, 0x34u);
+            }
+        }
+    }
+    if (product && aspect.valid && aspect.safeScaleY < 1.0f &&
+        g_imageBase != 0u) {
+        const auto vtable = reinterpret_cast<std::uintptr_t>(
+            Field<void*>(product, 0u));
+        const float gutter = 360.0f * (1.0f / aspect.safeScaleY - 1.0f);
+        if (vtable == g_imageBase + kPauseGuideProductVtableRva) {
+            // Retry/Resume share this root (9460B0); the PAUSED filter is
+            // separate. Keep both localized text/button runs together.
+            void* root = Field<void*>(product, 0x34u);
+            if (root && patch::memory::IsReadable(
+                    root, kNodeDirtyFlagsOffset + sizeof(std::uint32_t)) &&
+                reinterpret_cast<std::uintptr_t>(Field<void*>(root, 0u)) ==
+                    g_imageBase + kPartyStatusGroupVtableRva) {
+                g_menuColumnUpdate.pauseGuideRoot = root;
+                g_menuColumnUpdate.pauseGuideBottomOffset = gutter;
+            }
+        } else if (vtable == g_imageBase + kSaveLoadProductVtableRva) {
+            void* root = Field<void*>(product, 0x34u);
+            void* node = root ? Field<void*>(root, kNodeFirstChildOffset) : nullptr;
+            for (unsigned count = 0; node && count < 16; ++count) {
+                const int id = Field<int>(node, kResourceIdOffset);
+                if (id == 740) g_menuColumnUpdate.saveLoadHeader = node;
+                if (id == 60) g_menuColumnUpdate.saveLoadFooter[0] = node;
+                if (reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+                        g_imageBase + menu_contract::kPartyStatusValueVtableRva &&
+                    std::fabs(Field<float>(node, 0xACu) - 642.0f) < 0.001f) {
+                    g_menuColumnUpdate.saveLoadFooter[1] = node;
+                }
+                node = Field<void*>(node, kNodeNextSiblingOffset);
+            }
+            g_menuColumnUpdate.saveLoadVerticalGutter = gutter;
+        } else if (vtable == g_imageBase + kHelpProductVtableRva) {
+            void* manager = g_guiManagerPointer ? *g_guiManagerPointer : nullptr;
+            void* active = manager ? Field<void*>(manager, 724u) : nullptr;
+            if (active && reinterpret_cast<std::uintptr_t>(Field<void*>(active, 0u)) ==
+                    g_imageBase + kSaveLoadProductVtableRva) {
+                g_menuColumnUpdate.saveLoadHeader = Field<void*>(product, 0x34u);
+                g_menuColumnUpdate.saveLoadVerticalGutter = gutter;
+            }
+        }
+    }
     CapturePartyStatus(product, g_menuColumnUpdate);
     CaptureFieldMapLayout(product, g_menuColumnUpdate);
     CaptureMissionListLayout(product, g_menuColumnUpdate);
@@ -443,6 +637,33 @@ int __fastcall MenuProductUpdateHook(void* product, void*, float delta) {
         } else if (vtable ==
                    g_imageBase + kSettingsChoiceProductVtableRva) {
             g_menuColumnUpdate.settingsChoiceGutter = gutter;
+        } else if (vtable ==
+                   g_imageBase + kParadigmDeckProductVtableRva) {
+            g_menuColumnUpdate.paradigmDeckGutter = gutter;
+        } else if (vtable ==
+                   g_imageBase + kParadigmRolesProductVtableRva) {
+            g_menuColumnUpdate.paradigmRolesGutter = gutter;
+        }
+    }
+    if (product && aspect.valid && aspect.safeScaleY < 1.0f &&
+        g_imageBase != 0u &&
+        reinterpret_cast<std::uintptr_t>(Field<void*>(product, 0u)) ==
+            g_imageBase + kTitleMenuVtableRva) {
+        void* const root = Field<void*>(product, 0x34u);
+        void* child = root ? Field<void*>(root, kNodeFirstChildOffset) : nullptr;
+        for (unsigned count = 0; child && count < 64u; ++count) {
+            // Authored copyright block: move the group, not its text strips,
+            // so language-specific rows and the menu keep their own layout.
+            if (Field<int>(child, kResourceIdOffset) == 94 &&
+                reinterpret_cast<std::uintptr_t>(Field<void*>(child, 0u)) ==
+                    g_imageBase + kTitleVisualRootVtableRva &&
+                Field<void*>(child, kNodeParentOffset) == root) {
+                g_menuColumnUpdate.titleCopyrightGroup = child;
+                g_menuColumnUpdate.titleCopyrightBottomOffset =
+                    360.0f * (1.0f / aspect.safeScaleY - 1.0f);
+                break;
+            }
+            child = Field<void*>(child, kNodeNextSiblingOffset);
         }
     }
     if (product && aspect.valid && aspect.correctionRequired &&
@@ -451,7 +672,7 @@ int __fastcall MenuProductUpdateHook(void* product, void*, float delta) {
             g_imageBase + kTitleLogoVtableRva) {
         const int mode = Field<int>(product, 0x184u);
         void* root = Field<void*>(product, 0x34u);
-        if ((mode == 4 || mode == 5) && root &&
+        if ((mode == 2 || mode == 4 || mode == 5) && root &&
             reinterpret_cast<std::uintptr_t>(Field<void*>(root, 0u)) ==
                 g_imageBase + kTitleVisualRootVtableRva) {
             // The title art is the root's 3D child; menu rows are a separate
@@ -501,14 +722,133 @@ void CorrectLocalCursorImpl(void* widget, float* position) {
 }
 
 void* __fastcall NodeTransformHook(void* node, void*, float delta) {
+    const auto& aspect = g_menuColumnUpdate.aspect;
+    const bool loadingNode = node && g_menuColumnUpdate.loadingScreen &&
+        BelongsToProduct(node, g_menuColumnUpdate.product);
+    const auto loadingVtable = loadingNode
+        ? reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) : 0u;
+    const int loadingId = loadingNode ? Field<int>(node, kResourceIdOffset) : -1;
+    const bool loadingImage = loadingNode &&
+        loadingVtable == g_imageBase + kSharedOverlayVtableRva &&
+        (loadingId == 41 || loadingId == 60);
+    const bool loadingGrid = loadingNode &&
+        loadingVtable == g_imageBase + kPartyStatusGroupVtableRva &&
+        loadingId == 0;
+    // The upper/lower dimming rectangles are separate from the grid and
+    // text. Their groups contain authored 1280-wide strips (resources 20/21).
+    const bool loadingDimming = loadingNode &&
+        loadingVtable == g_imageBase + kPartyStatusGroupVtableRva &&
+        (loadingId == 1 || loadingId == 2);
+    const bool loadingLowerDimmingStrip = loadingNode &&
+        loadingVtable == g_imageBase + kPartyStatusBackingVtableRva &&
+        loadingId == 21 && aspect.safeScaleY < 1.0f;
+    const bool loadingIndicator = node && node == g_menuColumnUpdate.loadingIndicatorRoot;
+    const bool loadingStart = loadingNode &&
+        loadingVtable == g_imageBase + menu_contract::kPartyStatusValueVtableRva &&
+        std::fabs(Field<float>(node, 0xACu) - 641.0f) < 0.001f;
+    const float loadingVerticalOffset = aspect.valid
+        ? 360.0f * (1.0f / aspect.safeScaleY - 1.0f) : 0.0f;
+    const bool shopChromeNode = node && g_menuColumnUpdate.shopChrome &&
+        BelongsToProduct(node, g_menuColumnUpdate.product);
+    const int shopId = shopChromeNode ? Field<int>(node, kResourceIdOffset) : -1;
+    const auto shopVtable = shopChromeNode
+        ? reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) : 0u;
+    const bool shopBackground = shopChromeNode && shopId == 1369 &&
+        shopVtable == g_imageBase + kPartyStatusGroupVtableRva;
+    const bool shopHeader = shopChromeNode && shopId == 60 &&
+        shopVtable == g_imageBase + kPartyStatusGroupVtableRva;
+    // Loaded gr_shop separates background art from logos/characters. Cover
+    // these layers uniformly; never scale the common theme owner. IDs depend
+    // on the template: landscape 27 is distinct from the logo 27 elsewhere.
+    const bool shopThemeBackground = node && g_menuColumnUpdate.shopTheme &&
+        Field<void*>(node, kNodeParentOffset) == g_menuColumnUpdate.shopTheme &&
+        ((reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+              g_imageBase + kPartyStatusGroupVtableRva &&
+          (Field<int>(node, kResourceIdOffset) == 1 ||
+           ((g_menuColumnUpdate.shopIndex == 1 ||
+             g_menuColumnUpdate.shopIndex == 2 ||
+             g_menuColumnUpdate.shopIndex == 3) &&
+            Field<int>(node, kResourceIdOffset) == 194) ||
+           (g_menuColumnUpdate.shopIndex == 11 &&
+            (Field<int>(node, kResourceIdOffset) == 11 ||
+             Field<int>(node, kResourceIdOffset) == 12)) ||
+           (g_menuColumnUpdate.shopIndex == 8 &&
+            Field<int>(node, kResourceIdOffset) == 242) ||
+           (g_menuColumnUpdate.shopIndex == 12 &&
+            Field<int>(node, kResourceIdOffset) == 27) ||
+           (g_menuColumnUpdate.shopIndex == 4 &&
+            (Field<int>(node, kResourceIdOffset) == 170 ||
+             Field<int>(node, kResourceIdOffset) == 171)) ||
+           (g_menuColumnUpdate.shopLandscapeTheme &&
+            (Field<int>(node, kResourceIdOffset) == 11 ||
+             Field<int>(node, kResourceIdOffset) == 27 ||
+             Field<int>(node, kResourceIdOffset) == 37)) ||
+           Field<int>(node, kResourceIdOffset) == 108 ||
+           Field<int>(node, kResourceIdOffset) == 111 ||
+           Field<int>(node, kResourceIdOffset) == 172)) ||
+         (reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+              g_imageBase + kSharedOverlayVtableRva &&
+          (Field<int>(node, kResourceIdOffset) == 164 ||
+           (g_menuColumnUpdate.shopIndex == 3 &&
+            Field<int>(node, kResourceIdOffset) == 220) ||
+           (g_menuColumnUpdate.shopIndex == 8 &&
+            Field<int>(node, kResourceIdOffset) == 194) ||
+           (g_menuColumnUpdate.shopIndex == 4 &&
+            Field<int>(node, kResourceIdOffset) == 1)))) ||
+        (node && g_menuColumnUpdate.shopTheme && [&] {
+            if (g_menuColumnUpdate.shopIndex != 0 &&
+                g_menuColumnUpdate.shopIndex != 3) return false;
+            if (reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) !=
+                g_imageBase + kPartyStatusBackingVtableRva) return false;
+            const int expectedId = g_menuColumnUpdate.shopIndex == 0 ? 42 : 229;
+            if (Field<int>(node, kResourceIdOffset) != expectedId) return false;
+            void* const parent = Field<void*>(node, kNodeParentOffset);
+            return parent && Field<void*>(parent, kNodeParentOffset) ==
+                    g_menuColumnUpdate.shopTheme &&
+                reinterpret_cast<std::uintptr_t>(Field<void*>(parent, 0u)) ==
+                    g_imageBase + kPartyStatusGroupVtableRva &&
+                Field<int>(parent, kResourceIdOffset) == 27;
+        }());
+    const bool shopSelectionBackground = node && g_menuColumnUpdate.shopVisuals &&
+        Field<void*>(node, kNodeParentOffset) == g_menuColumnUpdate.shopVisuals &&
+        reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+            g_imageBase + kPartyStatusGroupVtableRva &&
+        (Field<int>(node, kResourceIdOffset) == 1599 ||
+         Field<int>(node, kResourceIdOffset) == 1463);
+    const bool shopFill = shopBackground || shopSelectionBackground;
+    const bool shopFooterLine = shopChromeNode && shopId == 1477 &&
+        shopVtable == g_imageBase + kSharedOverlayVtableRva;
+    const bool shopHelpLine = node && (g_menuColumnUpdate.shopHelpRoot || shopChromeNode) &&
+        BelongsToProduct(node, g_menuColumnUpdate.product) &&
+        Field<int>(node, kResourceIdOffset) == 61 &&
+        reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+            g_imageBase + kPartyStatusBackingVtableRva;
+    const bool shopFooter = shopChromeNode &&
+        ((shopId == 1473 && shopVtable == g_imageBase + kPartyStatusGroupVtableRva) ||
+         (shopVtable == g_imageBase + 0x1148098u - 0x400000u &&
+          std::fabs(Field<float>(node, 0xACu) - 641.0f) < 0.001f));
     const auto& chrome = menu_chrome::Current();
     const bool battleNode = battle_header_layout::Affects(node);
+    const bool battleHudNode = battle_hud_layout::Affects(node);
     const bool gestaltNode = gestalt_layout::Affects(node);
     const bool partyStatusRoot = node &&
         node == g_menuColumnUpdate.partyStatusRoot;
     const float offset = node == chrome.header
         ? -chrome.offset
         : node == chrome.footer ? chrome.offset
+        : node && node == g_menuColumnUpdate.saveLoadHeader
+            ? -g_menuColumnUpdate.saveLoadVerticalGutter
+        : node && (node == g_menuColumnUpdate.saveLoadFooter[0] ||
+                   node == g_menuColumnUpdate.saveLoadFooter[1])
+            ? g_menuColumnUpdate.saveLoadVerticalGutter
+        : loadingIndicator || loadingStart ? loadingVerticalOffset
+        : node && node == g_menuColumnUpdate.pauseGuideRoot
+            ? g_menuColumnUpdate.pauseGuideBottomOffset
+        : shopHeader || (node && node == g_menuColumnUpdate.shopHelpRoot) ? -loadingVerticalOffset
+        : shopFooter || (node && node == g_menuColumnUpdate.shopDescription)
+            ? loadingVerticalOffset
+        : node && node == g_menuColumnUpdate.titleCopyrightGroup
+            ? g_menuColumnUpdate.titleCopyrightBottomOffset
         : partyStatusRoot ? g_menuColumnUpdate.partyStatusBottomOffset : 0.0f;
     const bool partyStatusBacking = node && std::find(
         g_menuColumnUpdate.partyStatusBackings.begin(),
@@ -516,6 +856,10 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
         g_menuColumnUpdate.partyStatusBackings.end();
     const bool fieldMapBacking = node &&
         node == g_menuColumnUpdate.fieldMapBacking;
+    const bool fieldMapFilterBacking = node && std::find(
+        g_menuColumnUpdate.fieldMapFilterBackings.begin(),
+        g_menuColumnUpdate.fieldMapFilterBackings.end(), node) !=
+        g_menuColumnUpdate.fieldMapFilterBackings.end();
     const bool fieldMapLeftGroup = node && std::find(
         g_menuColumnUpdate.fieldMapLeftGroups.begin(),
         g_menuColumnUpdate.fieldMapLeftGroups.end(), node) !=
@@ -544,10 +888,14 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
     const bool missionRatingGroup = missionRatingCandidate &&
         missionParent &&
         Field<int>(missionParent, kResourceIdOffset) == 878;
-    const bool widen = node && (node == chrome.headerBacking ||
-        node == chrome.footerBacking || partyStatusBacking ||
-        fieldMapBacking);
-    const bool backdrop = node && node == chrome.backdrop;
+    const bool sharedOverlay = node &&
+        g_menuColumnUpdate.aspect.valid &&
+        g_menuColumnUpdate.aspect.correctionRequired &&
+        reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+            g_imageBase + kSharedOverlayVtableRva &&
+        Field<int>(node, kResourceIdOffset) == kSharedOverlayResourceId &&
+        BelongsToProduct(node, g_menuColumnUpdate.product);
+    const bool backdrop = node && (node == chrome.backdrop || sharedOverlay || loadingGrid || shopFill);
     const bool titleLogoModel = node &&
         node == g_menuColumnUpdate.titleLogoModel;
     const PanelEdge articlePanel = node &&
@@ -573,22 +921,28 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
         reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
             g_imageBase + kPartyStatusBackingVtableRva &&
         SettingsChoiceBacking(Field<int>(node, kResourceIdOffset));
-    float settingsTextOffset = 0.0f;
-    if (settingsNode &&
-        nodeVtable == g_imageBase + kSettingsLabelVtableRva &&
-        resourceId == 898) {
-        settingsTextOffset = -g_menuColumnUpdate.settingsGutter;
-    } else if (settingsNode &&
-               nodeVtable == g_imageBase + kPartyStatusValueVtableRva &&
-               resourceId == -1) {
-        settingsTextOffset = g_menuColumnUpdate.settingsGutter;
-    } else if (settingsNode &&
-               nodeVtable == g_imageBase + kSettingsHeaderTextVtableRva &&
-               resourceId == -1) {
-        settingsTextOffset = Field<float>(node, 0x48u) < 640.0f
-            ? -g_menuColumnUpdate.settingsGutter
-            : g_menuColumnUpdate.settingsGutter;
-    }
+    const PanelEdge paradigmDeckPanel = node &&
+        g_menuColumnUpdate.paradigmDeckGutter > 0.0f &&
+        reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+            g_imageBase + kPartyStatusBackingVtableRva &&
+        BelongsToProduct(node, g_menuColumnUpdate.product)
+        ? ParadigmDeckPanelRole(Field<int>(node, kResourceIdOffset))
+        : PanelEdge::None;
+    const PanelEdge paradigmRolesPanel = node &&
+        g_menuColumnUpdate.paradigmRolesGutter > 0.0f &&
+        reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+            g_imageBase + kPartyStatusBackingVtableRva &&
+        BelongsToProduct(node, g_menuColumnUpdate.product)
+        ? ParadigmRolesPanelRole(Field<int>(node, kResourceIdOffset))
+        : PanelEdge::None;
+    const bool paradigmSelectionEffect = node &&
+        g_menuColumnUpdate.paradigmDeckGutter > 0.0f &&
+        reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
+            g_imageBase + kParadigmSelectionEffectVtableRva &&
+        BelongsToProduct(node, g_menuColumnUpdate.product);
+    const bool widen = node && (node == chrome.headerBacking ||
+        node == chrome.footerBacking || partyStatusBacking ||
+        fieldMapBacking || sharedOverlay || loadingGrid || loadingDimming || shopFill || shopFooterLine || shopHelpLine);
     const float footerValueOffset = node &&
         (node == chrome.footerTime ||
          node == chrome.footerGil)
@@ -614,13 +968,19 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
                 g_menuColumnUpdate.missionExpansion
             : 0.0f;
     const float columnOffset = NodeColumnOffset(node) +
-        footerValueOffset + footerGuideOffset + settingsTextOffset +
+        footerValueOffset + footerGuideOffset +
         (fieldMapLeftGroup ? g_menuColumnUpdate.fieldMapLeftOffset : 0.0f) +
         missionTextOffset;
-    if ((offset == 0.0f && !battleNode && !gestaltNode && !widen && !backdrop && !titleLogoModel &&
+    if ((offset == 0.0f && !battleNode && !battleHudNode && !gestaltNode && !widen && !backdrop && !titleLogoModel &&
+         !fieldMapFilterBacking &&
+         !loadingLowerDimmingStrip &&
+         !shopThemeBackground &&
+         !paradigmSelectionEffect && !loadingImage && !loadingIndicator &&
          articlePanel == PanelEdge::None &&
          settingsPanel == PanelEdge::None &&
          !settingsChoicePanel &&
+         paradigmDeckPanel == PanelEdge::None &&
+         paradigmRolesPanel == PanelEdge::None &&
          !missionHeaderPanel && !missionRowBacking &&
          columnOffset == 0.0f) ||
         (Field<std::uint32_t>(node, kNodeDirtyFlagsOffset) & 1u) != 0u) {
@@ -629,10 +989,30 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
     Field<std::uint32_t>(node, kNodeDirtyFlagsOffset) |= 4u;
     void* result = g_nodeTransform(node, delta);
     Field<float>(node, kNodeWorldYOffset) += offset;
+    if (loadingLowerDimmingStrip) {
+        // Keep the animated top edge unchanged; extend the authored 600-high
+        // rectangle down by the extra viewport height to hide its lower edge.
+        const float heightScale = 1.0f + 2.0f * loadingVerticalOffset / 600.0f;
+        for (const std::size_t index : {1u, 5u, 9u}) {
+            Field<float>(node, 0x18u + index * sizeof(float)) *= heightScale;
+        }
+    }
+    if (loadingImage || shopThemeBackground) {
+        const float cover = std::max(1.0f / aspect.safeScaleX, 1.0f / aspect.safeScaleY);
+        for (const std::size_t index : {0u, 1u, 4u, 5u, 8u, 9u}) {
+            Field<float>(node, 0x18u + index * sizeof(float)) *= cover;
+        }
+        float& x = Field<float>(node, 0x48u);
+        float& y = Field<float>(node, kNodeWorldYOffset);
+        x = 640.0f + (x - 640.0f) * cover;
+        y = 360.0f + (y - 360.0f) * cover;
+    }
     if (widen || backdrop) {
         const float widthScale = partyStatusBacking
             ? g_menuColumnUpdate.partyWidthScale
             : fieldMapBacking ? g_menuColumnUpdate.fieldMapWidthScale
+            : sharedOverlay || loadingGrid || loadingDimming || shopFill || shopFooterLine || shopHelpLine
+                ? 1.0f / g_menuColumnUpdate.aspect.safeScaleX
             : chrome.widthScale;
         for (const std::size_t index : {0u, 4u, 8u}) {
             Field<float>(node, 0x18u + index * sizeof(float)) *=
@@ -642,14 +1022,17 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
         x = 640.0f + (x - 640.0f) * widthScale;
     }
     if (backdrop) {
+        const float heightScale = sharedOverlay || loadingGrid || shopFill
+            ? 1.0f / g_menuColumnUpdate.aspect.safeScaleY
+            : chrome.heightScale;
         for (const std::size_t index : {1u, 5u, 9u}) {
             Field<float>(node, 0x18u + index * sizeof(float)) *=
-                chrome.heightScale;
+                heightScale;
         }
         float& y = Field<float>(node, kNodeWorldYOffset);
-        y = 360.0f + (y - 360.0f) * chrome.heightScale;
+        y = 360.0f + (y - 360.0f) * heightScale;
     }
-    if (fieldMapBacking) {
+    if (fieldMapBacking || fieldMapFilterBacking) {
         for (const std::size_t index : {1u, 5u, 9u}) {
             Field<float>(node, 0x18u + index * sizeof(float)) *=
                 g_menuColumnUpdate.fieldMapHeightScale;
@@ -659,20 +1042,22 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
             g_menuColumnUpdate.fieldMapHeightScale;
     }
     if (titleLogoModel) {
+        const float safeX = g_menuColumnUpdate.aspect.safeScaleX;
+        const float safeY = g_menuColumnUpdate.aspect.safeScaleY;
         for (const std::size_t index : {0u, 4u, 8u}) {
             Field<float>(node, 0x18u + index * sizeof(float)) *=
-                g_menuColumnUpdate.aspect.safeScaleX;
+                safeX;
         }
         for (const std::size_t index : {1u, 5u, 9u}) {
             Field<float>(node, 0x18u + index * sizeof(float)) *=
-                g_menuColumnUpdate.aspect.safeScaleY;
+                safeY;
         }
         float& x = Field<float>(node, 0x48u);
         float& y = Field<float>(node, kNodeWorldYOffset);
         x = 640.0f +
-            (x - 640.0f) * g_menuColumnUpdate.aspect.safeScaleX;
+            (x - 640.0f) * safeX;
         y = 360.0f +
-            (y - 360.0f) * g_menuColumnUpdate.aspect.safeScaleY;
+            (y - 360.0f) * safeY;
     }
     ExtendPanelNode(node, articlePanel,
                     g_menuColumnUpdate.articleGutter);
@@ -691,8 +1076,21 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
         ExtendPanelNode(node, PanelEdge::Both,
                         g_menuColumnUpdate.settingsChoiceGutter);
     }
+    if (paradigmSelectionEffect) {
+        const float gutter = g_menuColumnUpdate.paradigmDeckGutter;
+        const float scale = 1.0f + gutter / kParadigmSelectionEffectWidth;
+        for (const std::size_t index : {0u, 4u, 8u}) {
+            Field<float>(node, 0x18u + index * sizeof(float)) *= scale;
+        }
+        Field<float>(node, 0x48u) -= gutter;
+    }
+    ExtendPanelNode(node, paradigmDeckPanel,
+                    g_menuColumnUpdate.paradigmDeckGutter);
+    ExtendPanelNode(node, paradigmRolesPanel,
+                    g_menuColumnUpdate.paradigmRolesGutter);
     Field<float>(node, 0x48u) += columnOffset;
     if (battleNode) battle_header_layout::Apply(node);
+    if (battleHudNode) battle_hud_layout::Apply(node);
     if (gestaltNode) gestalt_layout::Apply(node);
     Field<std::uint32_t>(node, kNodeDirtyFlagsOffset) |= 8u;
     return result;

@@ -22,7 +22,10 @@ struct MenuColumnProfile {
     std::array<ColumnRule, 4> rules{};
 };
 
-inline constexpr std::array<MenuColumnProfile, 13> kMenuColumnProfiles{{
+inline constexpr std::array<MenuColumnProfile, 15> kMenuColumnProfiles{{
+    {0x1153D90u - 0x400000u, {{{ColumnSelector::Field, 0x80, ColumnSide::Left},
+                              {ColumnSelector::Field, 0x90, ColumnSide::Left}}}},
+    {0x1153920u - 0x400000u, {{{ColumnSelector::Root, 0, ColumnSide::Right}}}},
     {0x11549A8u - 0x400000u, {{{ColumnSelector::RootChildContaining, 0x80, ColumnSide::Left}}}},
     {0x1152578u - 0x400000u, {{{ColumnSelector::Field, 0x70, ColumnSide::Left}}}},
     {0x11544F0u - 0x400000u, {{{ColumnSelector::Field, 0xF8, ColumnSide::Left},
