@@ -506,7 +506,14 @@ void DrawPluginPanel() {
         const PluginThemeScope pluginTheme(plugin);
         ImGui::Spacing();
         if (!plugin.description.empty()) {
-            ImGui::TextWrapped("%s", plugin.description.c_str());
+            const std::wstring descriptionStateKey =
+                headerStateKey + L"_Description";
+            if (state::CollapsingHeader(
+                    "Description###PluginDescription",
+                    descriptionStateKey.c_str(),
+                    ImGuiTreeNodeFlags_SpanAvailWidth)) {
+                ImGui::TextWrapped("%s", plugin.description.c_str());
+            }
         }
         if (!plugin.website.empty()) {
             ImGui::TextLinkOpenURL("Website", plugin.website.c_str());
