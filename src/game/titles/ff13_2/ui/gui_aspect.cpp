@@ -8,6 +8,7 @@
 #include "game/core/image_view.h"
 #include "game/titles/ff13_2/ui/crystarium_list.h"
 #include "game/titles/ff13_2/ui/minimap_layout.h"
+#include "game/titles/ff13_2/ui/menu_chrome.h"
 #include "patch/detour32.h"
 #include "patch/relative_branch.h"
 #include "patch/transaction.h"
@@ -239,6 +240,9 @@ int __cdecl GuiScissorSubmitHook(
              static_cast<std::int32_t>(bottom)},
             aspect);
     corrected = xiii2_crystarium_list::CorrectScissor(
+        {x, y, static_cast<std::int32_t>(right),
+         static_cast<std::int32_t>(bottom)}, corrected, aspect);
+    corrected = xiii2_menu_chrome::CorrectScissor(
         {x, y, static_cast<std::int32_t>(right),
          static_cast<std::int32_t>(bottom)}, corrected, aspect);
 

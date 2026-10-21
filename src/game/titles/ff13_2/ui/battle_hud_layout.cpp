@@ -4,6 +4,7 @@
 #include "display/aspect_runtime.h"
 #include "game/core/game_profile.h"
 #include "game/core/image_view.h"
+#include "game/titles/ff13_2/ui/menu_chrome.h"
 #include "patch/detour32.h"
 #include "patch/memory_access.h"
 
@@ -69,6 +70,8 @@ void** g_guiManagerPointer{};
 struct UpdateContext {
     void* root{};
     float offset{};
+    xiii2_menu_chrome::VerticalAnchors menu{};
+    float menuGutter{};
 };
 thread_local UpdateContext g_updateContext{};
 
@@ -152,6 +155,9 @@ void __fastcall ProductUpdateHook(void* product, void*, float delta) {
     }
     const UpdateContext previous = g_updateContext;
     g_updateContext = {};
+    g_updateContext.menu = xiii2_menu_chrome::CaptureVerticalAnchors(
+        product, reinterpret_cast<std::uintptr_t>(g_imageBase));
+    g_updateContext.menuGutter = gutter;
     if (product) {
         const auto vtable = VtableRva(product);
         const bool lower = LowerProduct(vtable);
@@ -161,7 +167,8 @@ void __fastcall ProductUpdateHook(void* product, void*, float delta) {
         if ((lower || help) && BattleActive()) {
             void* const root = Field<void*>(product, kProductRootOffset);
             if (root && patch::memory::IsWritable(root, kNodeFlagsOffset + 4u)) {
-                g_updateContext = {root, help ? -gutter : gutter};
+                g_updateContext.root = root;
+                g_updateContext.offset = help ? -gutter : gutter;
                 Field<std::uint32_t>(root, kNodeFlagsOffset) |= kTransformDirty;
             }
         }
@@ -171,11 +178,27 @@ void __fastcall ProductUpdateHook(void* product, void*, float delta) {
 }
 
 void __fastcall NodeTransformHook(void* node, void*, float delta) {
+    const auto& menu = g_updateContext.menu;
+    const bool menuHeader = xiii2_menu_chrome::IsHeader(
+        node, menu, reinterpret_cast<std::uintptr_t>(g_imageBase));
+    const bool menuNode = node &&
+        (menuHeader || node == menu.footers[0] || node == menu.footers[1]);
+    const float offset = g_updateContext.root && node == g_updateContext.root
+        ? g_updateContext.offset
+        : menuNode ? (menuHeader ? -g_updateContext.menuGutter
+                                : g_updateContext.menuGutter)
+        : 0.0f;
+    const bool translate = node && offset != 0.0f &&
+        (Field<std::uint32_t>(node, kNodeFlagsOffset) & 1u) == 0u;
+    if (translate) Field<std::uint32_t>(node, kNodeFlagsOffset) |= kTransformDirty;
     g_nodeTransform(node, delta);
-    if (g_updateContext.root && node == g_updateContext.root) {
-        Field<float>(node, kNodeWorldYOffset) += g_updateContext.offset;
+    if (translate) {
+        Field<float>(node, kNodeWorldYOffset) += offset;
         // Children resolve their matrices from this corrected parent.
         Field<std::uint32_t>(node, kNodeFlagsOffset) |= 8u;
+        // Rebuild from native animation channels next update, even if the
+        // viewport returns to 16:9 and no longer needs menu anchoring.
+        if (menuNode) Field<std::uint32_t>(node, kNodeFlagsOffset) |= kTransformDirty;
     }
 }
 

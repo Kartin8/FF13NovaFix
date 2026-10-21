@@ -74,6 +74,13 @@ constexpr std::uint32_t kNowLoadingProductVtableRva =
     0x11570F8u - 0x400000u;
 constexpr std::uint32_t kPauseGuideProductVtableRva =
     0x114A438u - 0x400000u;
+constexpr std::uint32_t kSubLocationProductVtableRva =
+    0x1198D40u - 0x400000u;
+constexpr std::size_t kSubLocationResourceOffset = 2288u;
+constexpr std::uint32_t kLowHpFilterProductVtableRva =
+    0x11438C8u - 0x400000u;
+constexpr std::size_t kBattleResourceOffset = 2252u;
+constexpr int kLowHpFilterResourceId = 1401;
 constexpr std::uint32_t kShopSelectionProductVtableRva = 0x1153D90u - 0x400000u;
 constexpr std::uint32_t kShopItemsProductVtableRva = 0x1153920u - 0x400000u;
 constexpr std::uint32_t kShopChromeProductVtableRva = 0x1151E00u - 0x400000u;
@@ -146,6 +153,10 @@ struct MenuColumnUpdateContext {
     void* loadingIndicatorRoot{};
     void* pauseGuideRoot{};
     float pauseGuideBottomOffset{};
+    void* subLocationRoot{};
+    float subLocationRightOffset{};
+    float subLocationBottomOffset{};
+    void* lowHpFilterRoot{};
     bool shopScreen{};
     void* shopDescription{};
     void* shopHelpRoot{};
@@ -518,6 +529,42 @@ int __fastcall MenuProductUpdateHook(void* product, void*, float delta) {
     g_menuColumnUpdate = {product, ColumnProfile(product), aspect};
     if (product && guiManager && aspect.valid && aspect.correctionRequired &&
         g_imageBase != 0u) {
+        // 91D5F0 enables this product when a party member is critical or KO.
+        // 91DA80 creates resource 1401: the upper/lower red gradient strips.
+        if (reinterpret_cast<std::uintptr_t>(Field<void*>(product, 0u)) ==
+                g_imageBase + kLowHpFilterProductVtableRva &&
+            Field<void*>(product, 0x4Cu) &&
+            Field<void*>(product, 0x4Cu) ==
+                Field<void*>(guiManager, kBattleResourceOffset)) {
+            void* const root = Field<void*>(product, 0x34u);
+            if (root && !Field<void*>(root, kNodeParentOffset) &&
+                reinterpret_cast<std::uintptr_t>(Field<void*>(root, 0u)) ==
+                    g_imageBase + kSharedOverlayVtableRva &&
+                Field<int>(root, kResourceIdOffset) == kLowHpFilterResourceId) {
+                g_menuColumnUpdate.lowHpFilterRoot = root;
+            }
+        }
+        // A18D60 instantiates gr_sublocation from this resource slot. Anchor
+        // the common root; its animated line and localized labels inherit it.
+        if (reinterpret_cast<std::uintptr_t>(Field<void*>(product, 0u)) ==
+                g_imageBase + kSubLocationProductVtableRva &&
+            Field<void*>(product, 0x4Cu) &&
+            Field<void*>(product, 0x4Cu) ==
+                Field<void*>(guiManager, kSubLocationResourceOffset)) {
+            void* const root = Field<void*>(product, 0x34u);
+            if (root && !Field<void*>(root, kNodeParentOffset) &&
+                reinterpret_cast<std::uintptr_t>(Field<void*>(root, 0u)) ==
+                    g_imageBase + kPartyStatusGroupVtableRva) {
+                g_menuColumnUpdate.subLocationRoot = root;
+                g_menuColumnUpdate.subLocationRightOffset =
+                    ff13_ui::HorizontalColumnOffset(
+                        aspect, ff13_ui::ColumnSide::Right);
+                if (aspect.safeScaleY > 0.0f && aspect.safeScaleY < 1.0f) {
+                    g_menuColumnUpdate.subLocationBottomOffset =
+                        360.0f * (1.0f / aspect.safeScaleY - 1.0f);
+                }
+            }
+        }
         void* active = Field<void*>(guiManager, 724u);
         const auto activeVtable = active
             ? reinterpret_cast<std::uintptr_t>(Field<void*>(active, 0u)) : 0u;
@@ -833,6 +880,8 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
     const bool gestaltNode = gestalt_layout::Affects(node);
     const bool partyStatusRoot = node &&
         node == g_menuColumnUpdate.partyStatusRoot;
+    const bool subLocationRoot = node &&
+        node == g_menuColumnUpdate.subLocationRoot;
     const float offset = node == chrome.header
         ? -chrome.offset
         : node == chrome.footer ? chrome.offset
@@ -849,6 +898,7 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
             ? loadingVerticalOffset
         : node && node == g_menuColumnUpdate.titleCopyrightGroup
             ? g_menuColumnUpdate.titleCopyrightBottomOffset
+        : subLocationRoot ? g_menuColumnUpdate.subLocationBottomOffset
         : partyStatusRoot ? g_menuColumnUpdate.partyStatusBottomOffset : 0.0f;
     const bool partyStatusBacking = node && std::find(
         g_menuColumnUpdate.partyStatusBackings.begin(),
@@ -893,8 +943,9 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
         g_menuColumnUpdate.aspect.correctionRequired &&
         reinterpret_cast<std::uintptr_t>(Field<void*>(node, 0u)) ==
             g_imageBase + kSharedOverlayVtableRva &&
-        Field<int>(node, kResourceIdOffset) == kSharedOverlayResourceId &&
-        BelongsToProduct(node, g_menuColumnUpdate.product);
+        ((Field<int>(node, kResourceIdOffset) == kSharedOverlayResourceId &&
+          BelongsToProduct(node, g_menuColumnUpdate.product)) ||
+         node == g_menuColumnUpdate.lowHpFilterRoot);
     const bool backdrop = node && (node == chrome.backdrop || sharedOverlay || loadingGrid || shopFill);
     const bool titleLogoModel = node &&
         node == g_menuColumnUpdate.titleLogoModel;
@@ -970,6 +1021,7 @@ void* __fastcall NodeTransformHook(void* node, void*, float delta) {
     const float columnOffset = NodeColumnOffset(node) +
         footerValueOffset + footerGuideOffset +
         (fieldMapLeftGroup ? g_menuColumnUpdate.fieldMapLeftOffset : 0.0f) +
+        (subLocationRoot ? g_menuColumnUpdate.subLocationRightOffset : 0.0f) +
         missionTextOffset;
     if ((offset == 0.0f && !battleNode && !battleHudNode && !gestaltNode && !widen && !backdrop && !titleLogoModel &&
          !fieldMapFilterBacking &&
