@@ -202,13 +202,3 @@ If the problem only shows up while recording, I can't really speak for other sof
 Special thanks to [Dendonflo](https://github.com/Dendonflo), [Surihix](https://github.com/Surihix), [BtEtta](https://github.com/BtEtta), H4NS, MorningSpice, [Null&Void](https://codeberg.org/hectormiguel1), and [Cyanea](https://www.nexusmods.com/profile/cyaneaBt/mods) for testing NovaFix and reporting bugs, both in the proxy itself and in the original games that I hadn't noticed on my own.
 
 And thanks to the original [FF13Fix](https://github.com/rebtd7/FF13Fix) author and everyone who contributed to it. Their work made the entry point into the deeper fixes for these games a lot easier.
-
-
-
-
-
-
-## The Boring Stuff
-
-NovaFix is unofficial and is not affiliated with or endorsed by Square Enix.
-It does not include game files; a legal installed copy of the game(s) is required.
